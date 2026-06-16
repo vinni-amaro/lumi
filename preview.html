@@ -2,7 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Lumi — Flow Preview</title>
+  <style>
+    @media (max-width: 500px) {
+      body {
+        background: #000 !important;
+        padding: 0 !important;
+        display: block !important;
+        overflow: hidden;
+        height: 100dvh;
+      }
+      nav { display: none !important; }
+      .screen-label { display: none !important; }
+      .phone {
+        width: 100vw !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+      .screen {
+        width: 100vw !important;
+        height: 100dvh !important;
+      }
+      .sheet-panel {
+        height: 92dvh !important;
+      }
+    }
+  </style>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
 
@@ -328,7 +355,7 @@
     <!-- Ask Lumi button -->
     <div id="ask-lumi-btn" style="position:absolute;right:24px;bottom:88px;z-index:30;width:64px;height:64px;border-radius:32px;box-shadow:0 8px 24px rgba(0,0,0,0.35),0 2px 8px rgba(0,0,0,0.2),0 0 0 1px rgba(255,255,255,0.12),0 0 32px rgba(180,160,255,0.25);cursor:pointer;overflow:hidden;user-select:none;transition:width 0.4s cubic-bezier(0.32,0.72,0,1),border-radius 0.4s cubic-bezier(0.32,0.72,0,1);">
       <!-- Video background -->
-      <video id="bg-video-btn" autoplay muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="videos/Lumi 7 (bg only).mp4" type="video/mp4"></video>
+      <video id="bg-video-btn" autoplay muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"><source src="../videos/Lumi 7 (bg only).mp4" type="video/mp4"></video>
       <!-- CTA label — hidden until press -->
       <div id="ask-lumi-label" style="position:absolute;inset:0;z-index:2;display:flex;align-items:center;padding:0 20px 0 24px;opacity:0;transition:opacity 0.2s ease;">
         <span style="font:600 16px/20px Inter,sans-serif;color:#191919;letter-spacing:-0.3px;white-space:nowrap;">Ask Lumi</span>
@@ -340,7 +367,7 @@
       <div class="sheet-backdrop" onclick="closeSheets()"></div>
       <div class="sheet-panel" style="background:#000;border-radius:20px 20px 0 0;height:812px;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:24px;overflow:hidden;position:relative;">
         <!-- Background video -->
-        <video id="bg-video-sheet" autoplay muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"><source src="videos/Lumi 7 (bg only).mp4" type="video/mp4"></video>
+        <video id="bg-video-sheet" autoplay muted playsinline loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"><source src="../videos/Lumi 7 (bg only).mp4" type="video/mp4"></video>
         <div id="grabber-02" style="width:36px;height:4px;background:rgba(0,0,0,0.35);border-radius:2px;margin:10px auto 0;cursor:grab;touch-action:none;flex-shrink:0;position:relative;"></div>
         <!-- Lumi intro text — no z-index so blend sees the video beneath -->
         <div style="flex:1;display:flex;align-items:center;padding:0 28px;position:relative;">
