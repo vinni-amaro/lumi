@@ -1,0 +1,332 @@
+/*
+ * Numa Design System — Canonical Token Definitions
+ * ============================================================================
+ * Extracted from: prototypes/numa-ds-showcase.html (the single source of truth)
+ *
+ * THIS IS THE SINGLE SOURCE OF TRUTH FOR ALL DS TOKEN VALUES.
+ * Do NOT duplicate these hex/px/rem values in any other file (SKILL.md,
+ * reference HTML, examples). Every other file references these tokens by name.
+ *
+ * Source-of-truth chain:  Figma DS (4yMAiIDVZHxsXbXSnyQvRK)
+ *                          -> prototypes/numa-ds-showcase.html :root
+ *                          -> this file (mechanical extraction)
+ *
+ * RE-EXTRACT after any showcase token change:
+ *   1. :root block      -> showcase lines for `:root { ... }`
+ *   2. dark overrides   -> showcase `[data-theme="dark"] { ... }` token block
+ *      (the FIRST data-theme block only — the per-component dark overrides
+ *       like `[data-theme="dark"] .sidebar` stay in the reference files)
+ *   Quick slice (verify line numbers against the current showcase first):
+ *     sed -n '/^    :root {/,/^    }/p' prototypes/numa-ds-showcase.html
+ *     sed -n '/^    \[data-theme="dark"\] {/,/^    }/p' prototypes/numa-ds-showcase.html
+ *
+ * Usage in a new project: @import this file, or copy its contents into your
+ * globals.css. See examples/globals-css-template.css for the bootstrap pattern.
+ * ============================================================================
+ */
+
+/* ===========================================================================
+ * @font-face — Lausanne (self-hosted)
+ * ---------------------------------------------------------------------------
+ * These live OUTSIDE :root (they are at-rules, not custom properties), so a
+ * `:root { ... }` slice will NOT capture them. They MUST be re-added by hand
+ * after any re-extraction. Omitting them makes every consumer fall back to
+ * Inter / system-ui (known bug — 06ce4548 / 88dcfa96).
+ *
+ * PATH RESOLUTION: url() in @font-face resolves relative to THIS file
+ * (tokens.css at the skill root), NOT relative to the HTML file that
+ * @imports it. tokens.css lives at numa-design-system/tokens.css and the
+ * woff2 files live at numa-design-system/reference/fonts/, so the correct
+ * relative path here is `reference/fonts/...`. (The showcase uses `fonts/...`
+ * because its fonts sit at prototypes/fonts/ — do NOT copy that path verbatim.)
+ * =========================================================================== */
+@font-face {
+  font-family: "lausanne";
+  src: url("reference/fonts/TWKLausanne-300.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "lausanne";
+  src: url("reference/fonts/TWKLausanne-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "lausanne";
+  src: url("reference/fonts/TWKLausanne-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Brand */
+  --ds-brand-black: #191919;
+  --ds-brand-pink: #ffc9d2;
+
+  /* Greyscale */
+  --ds-grey-white: #ffffff;
+  --ds-grey-100: #f4f4f4;
+  --ds-grey-150: #eceae7;
+  --ds-grey-200: #dedddb;
+  --ds-grey-250: #b2b2b2;
+  --ds-grey-280: #6d706f;
+  --ds-grey-300: #3e3f3e;
+  --ds-grey-400: #212322;
+  --ds-grey-black: #000000;
+
+  /* Functional Green */
+  --ds-green-400: #1e7868;
+  --ds-green-300: #85c5a2;
+  --ds-green-200: #c2e2d1;
+  --ds-green-100: #e1f1e8;
+
+  /* Functional Orange */
+  --ds-orange-500: #b24612;
+  --ds-orange-400: #ff671f;
+  --ds-orange-300: #ffb38f;
+  --ds-orange-200: #ffd1bc;
+  --ds-orange-100: #fff0e9;
+
+  /* Functional Red */
+  --ds-red-500: #cf3e3e;
+  --ds-red-400: #f05656;
+
+  /* Functional Pink (danger surface ramp) */
+  --ds-pink-100: #fff7f9;
+  --ds-pink-200: #fee7ec;
+  --ds-pink-300: #fdd7df;
+  --ds-pink-400: #fcafc0;
+
+  /* Functional Blue */
+  --ds-blue-300: #176ecc;
+
+  /* Functional Yellow */
+  --ds-yellow-100: #fffbe9;
+  --ds-yellow-200: #fef4bd;
+  --ds-yellow-300: #feec91;
+  --ds-yellow-400: #fdda24;
+
+  /* City / Market Colors */
+  --ds-city-amsterdam: #d31779;
+  --ds-city-barcelona: #5e5bff;
+  --ds-city-berlin: #ea2720;
+  --ds-city-copenhagen: #617b98;
+  --ds-city-florence: #5f824f;
+  --ds-city-hague: #d04b2f;
+  --ds-city-lisbon: #0962c7;
+  --ds-city-london: #9162ca;
+  --ds-city-madrid: #b76234;
+  --ds-city-milan: #0a8b45;
+  --ds-city-munich: #1d7ec3;
+  --ds-city-paris: #228775;
+  --ds-city-venice: #e63305;
+  --ds-city-rome: #be5d3c;
+
+  /* Brand Tier Colors */
+  --ds-tier-numa-light: #ffffb4;
+  --ds-tier-numa-collection: #eceae7;
+  --ds-tier-numa-premium-collection: #ced1bf;
+
+  /* =====================================================================
+   * TIER 2: SEMANTIC TOKENS — Intent-based, what components consume
+   * Source: numa-web/packages/library/styles/figma-tokens/colors.css
+   * ===================================================================== */
+
+  /* Background */
+  --bg-default: var(--ds-grey-white);
+  --bg-secondary: var(--ds-grey-100);
+  --bg-tertiary: var(
+    --ds-grey-150
+  ); /* one step darker than --bg-secondary; pressed-state surface */
+  --bg-brand-black: var(--ds-brand-black);
+  --bg-brand-pink: var(--ds-brand-pink);
+  --bg-action: var(--ds-brand-black);
+  --bg-action-disabled: var(--ds-grey-200);
+  --bg-positive: var(--ds-green-100);
+  --bg-positive-strong: var(--ds-green-400);
+  --bg-warning: var(--ds-orange-100);
+  --bg-warning-strong: var(--ds-orange-500);
+  --bg-danger: var(--ds-pink-100);
+  --bg-danger-strong: var(--ds-red-500);
+
+  /* Content */
+  --text-default: var(--ds-brand-black);
+  --text-secondary: var(--ds-grey-280);
+  --text-on-action: var(--ds-grey-white);
+  --text-on-brand-black: var(--ds-grey-white);
+  --text-on-brand-pink: var(--ds-brand-black);
+  --text-action: var(--ds-brand-black);
+  --text-action-hovered: var(--ds-grey-280);
+  --text-action-pressed: var(--ds-grey-250);
+  --text-action-on-action: var(--ds-grey-white);
+  --text-brand-on-brand-pink: var(--ds-brand-black);
+  --text-brand-on-brand-black: var(--ds-grey-white);
+  --text-disabled: var(--ds-grey-250);
+  --text-positive: var(--ds-green-400);
+  --text-positive-on-strong: var(--ds-grey-white);
+  --text-warning: var(--ds-orange-500);
+  --text-warning-on-strong: var(--ds-grey-white);
+  --text-danger: var(--ds-red-500);
+  --text-danger-on-danger: var(--ds-grey-white);
+
+  /* Outline */
+  --border-default: var(--ds-grey-200);
+  --border-light: var(--ds-grey-150);
+  --border-prominent: var(--ds-brand-black);
+  --border-accent: var(--ds-blue-300);
+  --border-positive: var(--ds-green-300);
+  --border-warning: var(--ds-orange-300);
+  --border-danger: var(--ds-red-500);
+
+  /* Compatibility aliases — older section markup references these names.
+     Mapped to the canonical semantic tokens so no var() resolves to initial. */
+  --bg-primary: var(--bg-default); /* white surface */
+  --bg-input: var(--bg-default); /* inputs sit on the base surface */
+  --border-subtle: var(--border-light); /* lighter of the two border tiers */
+  --text-placeholder: var(
+    --text-secondary
+  ); /* muted grey for placeholder copy */
+  --color-primary: var(
+    --text-positive
+  ); /* green brand/active signal (#1e7868) */
+
+  /* State overlays */
+  --hover-overlay: rgb(0 0 0 / 10%);
+  --pressed-overlay: rgb(0 0 0 / 20%);
+  --hover-inverse: rgb(255 255 255 / 15%);
+  --pressed-inverse: rgb(255 255 255 / 25%);
+  --hover-danger: rgb(207 62 62 / 10%);
+  --pressed-danger: rgb(207 62 62 / 20%);
+  --scrim: rgb(0 0 0 / 40%);
+
+  /* =====================================================================
+   * TYPOGRAPHY
+   * Font: Lausanne (self-hosted) with Inter fallback
+   * ===================================================================== */
+  --font-family: "lausanne", "Inter", ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500; /* EXTENSION: not a DS primitive — see Typography note */
+  --weight-semibold: 600;
+  --letter-spacing: -0.2px;
+
+  /* =====================================================================
+   * SIZING
+   * ===================================================================== */
+  /* Spacing scale — values + Figma DS names (per Breakpoint & Layout / Spacing page).
+     Figma scale: XXS 4 → DXXXL 88. The 4–48px range matches exactly; the top two
+     steps are 60px (DXXL) and 88px (DXXXL), NOT 64/96. --spacing-xxxs (2px) is a
+     showcase-only micro step below the Figma floor. */
+  --spacing-xxxs: 2px; /* (extension — below Figma floor) */
+  --spacing-xxs: 4px; /* Figma: XXS  (0.25rem) */
+  --spacing-xs: 8px; /* Figma: XS   (0.5rem)  */
+  --spacing-s: 12px; /* Figma: S    (0.75rem) */
+  --spacing-m: 16px; /* Figma: M    (1rem)    */
+  --spacing-l: 20px; /* Figma: L    (1.25rem) */
+  --spacing-xl: 24px; /* Figma: XL   (1.5rem)  */
+  --spacing-2xl: 32px; /* Figma: XXL  (2rem)    */
+  --spacing-3xl: 40px; /* Figma: XXXL (2.25rem) */
+  --spacing-4xl: 48px; /* Figma: DXL  (3rem)    */
+  --spacing-5xl: 60px; /* Figma: DXXL (3.75rem) — was 64px */
+  --spacing-6xl: 88px; /* Figma: DXXXL(5.5rem)  — was 96px */
+  /* Compatibility aliases for legacy section markup */
+  --spacing-2xs: var(--spacing-xxs); /* 4px */
+  --spacing-xxl: var(--spacing-2xl); /* 32px */
+
+  /* Corner Radius: 5 steps */
+  --radius-none: 0px;
+  --radius-s: 4px;
+  --radius-m: 8px;
+  --radius-l: 16px;
+  --radius-full: 999px;
+
+  /* Stroke */
+  --stroke-none: 0px;
+  --stroke-thin: 1px;
+  --stroke-default: 2px;
+}
+
+/* =========================================================================
+ * DARK MODE TOKEN OVERRIDES
+ *
+ * Dark theme for Numa DS. NOT a mechanical inversion.
+ * Principles:
+ *   1. Elevation via lightness (lighter bg = higher surface)
+ *   2. Brand-black #191919 as primary canvas
+ *   3. Reduced saturation on colored fills (no glowing badges)
+ *   4. Green text lightened for WCAG AA on dark surfaces
+ *   5. Warm shadows, not pure black
+ *
+ * PRIMITIVE TOKENS ARE UNCHANGED — only semantic mappings shift.
+ * ========================================================================= */
+[data-theme="dark"] {
+  /* --- Background: elevation via lightness --- */
+  /* L0: Canvas (deepest) */
+  --bg-default: var(--ds-brand-black); /* #191919 — brand surface */
+  /* L1: Slightly elevated (sidebar, input bg, secondary) */
+  --bg-secondary: var(--ds-grey-400); /* #212322 */
+  /* L1.5: Pressed-state surface, one step up from secondary */
+  --bg-tertiary: var(
+    --ds-grey-300
+  ); /* #3e3f3e — defined primitive, clear pressed read on dark */
+  /* L2: Card / popover — not a primitive, composed value */
+  --bg-elevated: #2a2c2a;
+  /* Action stays brand-black (buttons read as solid on any surface) */
+  --bg-action: var(--ds-grey-white); /* INVERTED: white buttons on dark */
+  --bg-action-disabled: var(--ds-grey-300); /* #3e3f3e — muted, not glaring */
+  /* Brand surfaces */
+  --bg-brand-black: var(--ds-grey-white); /* Flip for contrast contexts */
+  --bg-brand-pink: var(--ds-brand-pink); /* Pink works on dark — keep */
+
+  /* Status fills: translucent to avoid glow. These are NOT primitives
+     but composed dark-mode badge surfaces using functional color at low opacity. */
+  --bg-positive: rgba(30, 120, 104, 0.15); /* Muted green fill */
+  --bg-positive-strong: var(--ds-green-400); /* #1e7868 — solid stays */
+  --bg-warning: rgba(178, 70, 18, 0.15); /* Muted orange fill */
+  --bg-warning-strong: var(--ds-orange-500); /* #b24612 stays */
+  --bg-danger: rgba(207, 62, 62, 0.12); /* Muted red fill */
+  --bg-danger-strong: var(--ds-red-500); /* #cf3e3e stays */
+
+  /* --- Content / Text --- */
+  --text-default: var(--ds-grey-100); /* #f4f4f4 — primary text */
+  --text-secondary: #9b9d9c; /* Softened from #b2b2b2 to reduce glare */
+  --text-on-action: var(
+    --ds-brand-black
+  ); /* INVERTED: dark text on white buttons */
+  --text-on-brand-black: var(
+    --ds-brand-black
+  ); /* Flip for inverted brand-black usage */
+  --text-on-brand-pink: var(--ds-brand-black); /* Pink text context unchanged */
+  --text-action: var(--ds-grey-100); /* #f4f4f4 */
+  --text-action-hovered: var(--ds-grey-200); /* #dedddb */
+  --text-action-pressed: var(--ds-grey-250); /* #b2b2b2 */
+  --text-disabled: var(--ds-grey-300); /* #3e3f3e — visible but muted */
+  /* Status text: lightened for WCAG AA on dark backgrounds.
+     #1e7868 on #191919 = 3.4:1 (fails AA). #85c5a2 on #191919 = 7.2:1 (passes). */
+  --text-positive: var(--ds-green-300); /* #85c5a2 */
+  --text-warning: var(--ds-orange-400); /* #ff671f — brighter orange for dark */
+  --text-danger: var(--ds-red-400); /* #f05656 — brighter red for dark */
+
+  /* --- Outline / Borders --- */
+  --border-default: var(--ds-grey-300); /* #3e3f3e — subtle on dark */
+  --border-light: #333534; /* Softer than default, for row separators */
+  --border-prominent: var(--ds-grey-100); /* #f4f4f4 — strong on dark */
+  --border-accent: #4a9eed; /* Lightened blue for dark bg visibility */
+  --border-positive: rgba(133, 197, 162, 0.4); /* Muted green border */
+  --border-warning: rgba(255, 179, 143, 0.4); /* Muted orange border */
+  --border-danger: rgba(240, 86, 86, 0.5); /* Muted red border */
+
+  /* --- State overlays: INVERTED for dark surfaces --- */
+  --hover-overlay: rgb(255 255 255 / 8%);
+  --pressed-overlay: rgb(255 255 255 / 15%);
+  --hover-inverse: rgb(0 0 0 / 10%);
+  --pressed-inverse: rgb(0 0 0 / 20%);
+  --hover-danger: rgb(240 86 86 / 12%);
+  --pressed-danger: rgb(240 86 86 / 20%);
+  --scrim: rgb(0 0 0 / 60%); /* Stronger scrim on dark */
+}
