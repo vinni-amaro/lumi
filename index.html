@@ -3297,6 +3297,7 @@ function goToEntry() {
   resetDoorsChatBody();
   document.getElementById('welcomeScreenBcn').classList.remove('exiting');
   beamAimEl = null;
+  laundryActive = false;
   applyState('idle');
   setUiStateButtons('idle');
 }
@@ -3585,11 +3586,30 @@ const DOOR_OPTIONS = [
   { id: 'room502', label: 'Room 502', confirm: 'Room 502 is open.' },
 ];
 
+// Reached only via the typed "laundry room" request below, not part of
+// the initial three-door row — same door object shape, so it plugs into
+// buildDoorBtn/wireDoorPressAndHold with zero special-casing.
+const ESSENTIALS_DOOR = { id: 'essentials', label: 'Essentials Door', confirm: 'Essentials door is open.' };
+
 // All three doors share the exact same press-and-hold/charge/beam/open
 // sequence — only WHICH button the beam points at and which confirmation
 // text lands differs per door, both driven from the same DOOR_OPTIONS
 // entry each button was built from.
 const DOOR_HOLD_MS = 1400; // full press-and-hold duration required to open
+
+// Builds one press-and-hold door button (markup + wiring) — shared by
+// both the 3-across row below AND the single Essentials Door button the
+// laundry-room request adds further down, so every door button in this
+// scenario, however it arrives in the thread, is built and wired
+// identically.
+function buildDoorBtn(door) {
+  const btn = document.createElement('button');
+  btn.className = 'door-btn';
+  btn.dataset.door = door.id;
+  btn.innerHTML = `<span class="door-btn-charge"></span><span class="door-btn-label">${door.label}</span>`;
+  wireDoorPressAndHold(btn, door);
+  return btn;
+}
 
 function buildDoorRow() {
   const row = document.createElement('div');
@@ -3603,14 +3623,24 @@ function buildDoorRow() {
   row.style.maxWidth = '100%';
 
   DOOR_OPTIONS.forEach((door) => {
-    const btn = document.createElement('button');
-    btn.className = 'door-btn';
-    btn.dataset.door = door.id;
-    btn.innerHTML = `<span class="door-btn-charge"></span><span class="door-btn-label">${door.label}</span>`;
-    row.appendChild(btn);
-    wireDoorPressAndHold(btn, door);
+    row.appendChild(buildDoorBtn(door));
   });
 
+  return row;
+}
+
+// Same .door-row treatment as buildDoorRow, but for a single door — used
+// when Lumi offers just one specific door (the laundry-room request)
+// rather than the initial three-option row. Visually consistent (same
+// button sizing/spacing language), just one button instead of three.
+function buildSingleDoorRow(door) {
+  const row = document.createElement('div');
+  row.className = 'msg lumi door-row';
+  row.style.background = 'none';
+  row.style.border = 'none';
+  row.style.padding = '0';
+  row.style.maxWidth = '100%';
+  row.appendChild(buildDoorBtn(door));
   return row;
 }
 
@@ -3691,6 +3721,9 @@ function startDoorsScenario() {
   clearStayTimers();
   clearAskTimers();
   resetDoorsChatBody();
+  laundryActive = false;
+  document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+  askInput.value = '';
 
   // Fade the welcome message + quick actions upward, THEN swap views —
   // a real transition rather than an instant display:none/flex cut.
@@ -3711,11 +3744,65 @@ function startDoorsScenario() {
 
 document.getElementById('doorsBtnBcn').addEventListener('click', startDoorsScenario);
 
+// ---- "I want to open the laundry room door" — reached by tapping the
+// message input while already inside the Doors thread (chatLayerEl's
+// view is 'doors-convo'), not a new screen: the typed guest message and
+// Lumi's reply are appended into the SAME doorsChatScrollEl thread the
+// three-door row already lives in, using the exact same typed-input
+// mechanic (250ms pause, 40ms/char) and appendDoorsMsg/buildStayTextMsg
+// the rest of this scenario already uses — no new visual language.
+const LAUNDRY_REQUEST = "I want to open the laundry room door.";
+let laundryActive = false;
+
+function startLaundryRoomRequest() {
+  if (laundryActive) return;
+  laundryActive = true;
+  askInput.value = '';
+  document.getElementById('askAnythingBtnBcn').classList.add('active-input');
+
+  let charIndex = 0;
+  const typeStepMs = 40;
+  doorsTimers.push(setTimeout(function typeNext() {
+    charIndex++;
+    askInput.value = LAUNDRY_REQUEST.slice(0, charIndex);
+    if (charIndex < LAUNDRY_REQUEST.length) {
+      doorsTimers.push(setTimeout(typeNext, typeStepMs));
+    } else {
+      doorsTimers.push(setTimeout(sendLaundryRequest, 250));
+    }
+  }, 250));
+
+  function sendLaundryRequest() {
+    document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+    askInput.value = '';
+    appendDoorsMsg(buildStayTextMsg('guest', LAUNDRY_REQUEST));
+
+    doorsTimers.push(setTimeout(() => {
+      appendDoorsMsg(buildStayTextMsg('lumi', 'Please press below to open the laundry room door.'));
+    }, 500));
+
+    doorsTimers.push(setTimeout(() => {
+      appendDoorsMsg(buildSingleDoorRow(ESSENTIALS_DOOR));
+      laundryActive = false;
+    }, 950));
+  }
+}
+
 document.getElementById('whereStayBtnBcn').addEventListener('click', startStayScenario);
 
 document.getElementById('askLumiBtnBcn').addEventListener('click', goToChat);
 document.getElementById('closeBtnBcn').addEventListener('click', goToEntry);
-document.getElementById('askAnythingBtnBcn').addEventListener('click', startSimulatedConversation);
+// While inside the Doors thread, tapping the input continues THAT
+// conversation (the laundry-room request) instead of launching the
+// unrelated "Ask anything" AC-repair demo — everywhere else, behaviour
+// is unchanged.
+document.getElementById('askAnythingBtnBcn').addEventListener('click', () => {
+  if (chatLayerEl.dataset.view === 'doors-convo') {
+    startLaundryRoomRequest();
+  } else {
+    startSimulatedConversation();
+  }
+});
 
 document.getElementById('stateSwitcherBcn').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
