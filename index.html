@@ -1159,11 +1159,13 @@
 
   @keyframes msgInBcn { to { opacity: 1; transform: translateY(0); } }
 
-  #frameBcn #stayChatScrollBcn .msg {
+  #frameBcn #stayChatScrollBcn .msg,
+  #frameBcn #doorsChatScrollBcn .msg {
     transform: translateY(4px);
   }
 
-  #frameBcn #stayChatScrollBcn .msg.stay-visible {
+  #frameBcn #stayChatScrollBcn .msg.stay-visible,
+  #frameBcn #doorsChatScrollBcn .msg.stay-visible {
     animation: stayMsgInBcn 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 
@@ -1171,7 +1173,8 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  #frameBcn #stayChatScrollBcn .typing.stay-visible { animation: msgInBcn 0.3s ease forwards; }
+  #frameBcn #stayChatScrollBcn .typing.stay-visible,
+  #frameBcn #doorsChatScrollBcn .typing.stay-visible { animation: msgInBcn 0.3s ease forwards; }
 
   #frameBcn .msg.lumi {
     align-self: flex-start;
@@ -1230,7 +1233,8 @@
     30% { transform: translateY(-4px); opacity: 1; }
   }
 
-  #frameBcn #stayChatBodyBcn {
+  #frameBcn #stayChatBodyBcn,
+  #frameBcn #doorsChatBodyBcn {
     overflow: hidden;
     padding: 0;
   }
@@ -2992,6 +2996,32 @@ function beamTargetPoint() {
   return [(u - 0.5) * aspect, (v - 0.5)];
 }
 
+// The beam's direction is eased as an ANGLE (around the light itself),
+// not as a raw X/Y target — because only the target's direction from the
+// light matters to the shader (see uBeamTarget/beamDir in the fragment
+// shader: its own magnitude is discarded, only beamDirN survives), so
+// picking a fixed radius and easing the angle produces a true rotation/
+// sweep around the light, exactly like a beam of light physically
+// swinging, rather than easing X and Y independently (which would trace
+// a slightly different, non-circular path and isn't what "rotate" means
+// here). 0 = straight down (the default/idle beam), positive = toward
+// +x (right). Whenever there's no explicit button target, this eases
+// back toward 0 — the same smooth rotation, just in reverse — instead of
+// snapping back to vertical the instant a hold ends or is released.
+let beamAngleCurrent = 0;
+const BEAM_TARGET_RADIUS = 0.4; // arbitrary; only direction matters to the shader
+
+function beamTargetAngle() {
+  const point = beamTargetPoint();
+  if (!point) return 0; // straight down
+  const [ox, oy] = objPosForTravel(travelCurrent);
+  const dx = point[0] - ox;
+  const dy = point[1] - oy;
+  // shader convention: "down" is -y, so angle 0 along (0,-1); atan2 here
+  // measures from that same down-vector, positive toward +x
+  return Math.atan2(dx, -dy);
+}
+
 const LEG_RISE_DUR = 1.1;
 const CENTRE_HOLD = 0.55;
 const LEG_EXIT_DUR = 1.15;
@@ -3156,12 +3186,20 @@ function frame() {
       ? entrance
       : [...objPosForTravel(travelCurrent), scaleForTravel(travelCurrent)];
     const [lox, loy] = searchOffset(now, energyCurrent, settleCurrent, scale);
-    // Beam target: an explicit DOM element (beamAimEl) if one is set,
-    // else directly below the light's CURRENT position (ox+lox, oy+loy)
-    // — same convention as lightPos in the shader — which reproduces the
-    // original always-vertical beam exactly.
-    const explicitTarget = beamTargetPoint();
-    const beamTargetXY = explicitTarget || [ox + lox, (oy + loy) - 1.0];
+    // Beam direction: eased as an angle around the light's own CURRENT
+    // position (ox+lox, oy+loy — same convention as lightPos in the
+    // shader), so switching targets (a button <-> straight down) is a
+    // smooth, continuous rotation rather than an instant snap. Chasing
+    // the raw target angle every frame at the same rate the rest of this
+    // system already uses (see energyCurrent/beamCurrent above) — a beam
+    // that is fully retracted (beamCurrent ~0) still rotates underneath,
+    // so it's already pointing the right way by the time it becomes
+    // visible again on the next hold.
+    beamAngleCurrent += (beamTargetAngle() - beamAngleCurrent) * 0.09;
+    const beamTargetXY = [
+      ox + lox + Math.sin(beamAngleCurrent) * BEAM_TARGET_RADIUS,
+      (oy + loy) - Math.cos(beamAngleCurrent) * BEAM_TARGET_RADIUS,
+    ];
     gl.useProgram(program);
     gl.uniform1f(uniforms.uTime, now);
     gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
@@ -3542,16 +3580,15 @@ function appendDoorsMsg(el) {
 }
 
 const DOOR_OPTIONS = [
-  { id: 'entrance', label: 'Entrance door' },
-  { id: 'corridor', label: 'Corridor door' },
-  { id: 'room502', label: 'Room 502' },
+  { id: 'entrance', label: 'Entrance door', confirm: 'Entrance door is open.' },
+  { id: 'corridor', label: 'Corridor door', confirm: 'Corridor door is open.' },
+  { id: 'room502', label: 'Room 502', confirm: 'Room 502 is open.' },
 ];
 
-// Only Room 502 is wired to the full press-and-hold/charge/open sequence
-// for this step — Entrance door and Corridor door are already real
-// press-and-hold buttons (same markup/behaviour shell) but intentionally
-// inert beyond that for now, per "build the Doors interaction only [for
-// Room 502]" — pressing them does nothing yet, never an error.
+// All three doors share the exact same press-and-hold/charge/beam/open
+// sequence — only WHICH button the beam points at and which confirmation
+// text lands differs per door, both driven from the same DOOR_OPTIONS
+// entry each button was built from.
 const DOOR_HOLD_MS = 1400; // full press-and-hold duration required to open
 
 function buildDoorRow() {
@@ -3571,7 +3608,7 @@ function buildDoorRow() {
     btn.dataset.door = door.id;
     btn.innerHTML = `<span class="door-btn-charge"></span><span class="door-btn-label">${door.label}</span>`;
     row.appendChild(btn);
-    wireDoorPressAndHold(btn, door.id);
+    wireDoorPressAndHold(btn, door);
   });
 
   return row;
@@ -3581,7 +3618,9 @@ function buildDoorRow() {
 // events (not click) so it genuinely requires a sustained hold, not a
 // tap: pointerdown starts charging, and anything short of holding for
 // the full DOOR_HOLD_MS (up) cancels and resets to idle with no effect.
-function wireDoorPressAndHold(btn, doorId) {
+// Identical behaviour for all three doors — only the beam target (this
+// button) and the confirmation text (door.confirm) differ per door.
+function wireDoorPressAndHold(btn, door) {
   const chargeEl = btn.querySelector('.door-btn-charge');
   let raf = null;
   let startTime = null;
@@ -3596,7 +3635,7 @@ function wireDoorPressAndHold(btn, doorId) {
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     btn.classList.remove('charging', 'charged');
     setCharge(0);
-    if (doorId === 'room502' && beamAimEl === btn) {
+    if (beamAimEl === btn) {
       beamAimEl = null;
       setUiState('idle');
     }
@@ -3619,17 +3658,11 @@ function wireDoorPressAndHold(btn, doorId) {
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     btn.classList.remove('charging');
     btn.classList.add('charged');
-    if (doorId === 'room502') {
-      beamAimEl = null;
-      setUiState('idle');
-      setCharge(0);
-      btn.classList.remove('charged');
-      appendDoorsMsg(buildStayTextMsg('lumi', 'Room 502 is open.'));
-    } else {
-      // Entrance/Corridor: charge completes visually but has no further
-      // effect yet — settle back to idle so the button is reusable.
-      setTimeout(() => { btn.classList.remove('charged'); setCharge(0); }, 200);
-    }
+    beamAimEl = null;
+    setUiState('idle');
+    setCharge(0);
+    btn.classList.remove('charged');
+    appendDoorsMsg(buildStayTextMsg('lumi', door.confirm));
   }
 
   function start(e) {
@@ -3638,10 +3671,8 @@ function wireDoorPressAndHold(btn, doorId) {
     active = true;
     startTime = performance.now();
     btn.classList.add('charging');
-    if (doorId === 'room502') {
-      beamAimEl = btn;
-      setUiState('success');
-    }
+    beamAimEl = btn;
+    setUiState('success');
     raf = requestAnimationFrame(step);
   }
 
