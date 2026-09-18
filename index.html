@@ -1,0 +1,3829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lumi Spotlight</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+  /* ==========================================================================
+     SHARED / OUTER SHELL ONLY
+     ==========================================================================
+     Everything in this block is page chrome, not experience content: the
+     base reset, the corner tag, and the top pill switcher that decides
+     which of the two scenario implementations below is visible. Nothing
+     here is scenario-specific styling — each scenario's own CSS lives in
+     its own clearly bounded block further down (PRE BOOKING / BARCELONA
+     BOOKED), fully duplicated rather than shared, so editing one
+     scenario's visual language can never reach the other's.
+     ========================================================================== */
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #191919;
+    font-family: "lausanne", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+
+  .stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .corner-tag {
+    position: fixed;
+    top: 28px;
+    left: 28px;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    z-index: 100;
+  }
+
+  .exploration-switcher {
+    position: fixed;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 100px;
+    padding: 4px;
+    z-index: 100;
+  }
+
+  .exploration-switcher button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.55);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 9px 18px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: color 0.25s ease, background 0.25s ease;
+    white-space: nowrap;
+  }
+
+  .exploration-switcher button:hover { color: rgba(255,255,255,0.85); }
+
+  .exploration-switcher button.active {
+    background: rgba(255,255,255,0.95);
+    color: #191919;
+  }
+
+  /* Exactly one scenario wrapper is shown at a time — toggled by the
+     switcher above. Each wrapper below owns a full, independent copy of
+     the state-switcher dev control too, so that control's own state is
+     never shared between scenarios either. */
+  .scenario-wrap { display: none; }
+  .scenario-wrap.active { display: block; }
+
+  /* ==========================================================================
+     PRE BOOKING — FROZEN REFERENCE. DO NOT MODIFY.
+     ==========================================================================
+     This block (CSS) and its matching #framePre markup + JS IIFE further
+     down are the finished, protected Pre Booking experience. Every rule
+     below is scoped under #framePre so it can never affect the Barcelona
+     Booked block, even though both blocks currently use many of the same
+     class names — they are two textually separate rule sets, not one
+     shared set of classes, so editing one can never leak into the other.
+     ========================================================================== */
+  #framePre {
+    --numa-pink: #ffc9d2;
+    --numa-black: #191919;
+    --white: #ffffff;
+    --font-family: "lausanne", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+    /* Lumi Air dark environment — an intentional spatial ground, not
+       generic dark-mode grey. Elevation is built from lightness steps off
+       Numa Black itself, the same principle as the DS's dark-mode tokens. */
+    --air-bg: #191919;
+    --air-surface-1: #212121;   /* one step up — chat bubbles, input */
+    --air-surface-2: #272727;   /* two steps up — quick action chips */
+    --air-line: rgba(255,255,255,0.08);
+    --air-line-strong: rgba(255,255,255,0.14);
+    --air-text: rgba(255,255,255,0.94);
+    --air-text-60: rgba(255,255,255,0.6);
+    --air-text-40: rgba(255,255,255,0.4);
+
+    position: relative;
+    width: 385px;
+    height: 860px;
+    max-height: 92vh;
+    aspect-ratio: 1280 / 2856;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 100px rgba(0,0,0,0.55),
+      0 4px 24px rgba(0,0,0,0.4);
+    background: var(--air-bg);
+    font-family: var(--font-family);
+  }
+
+  /* ===================== PRESENCE CANVAS ===================== */
+  /* The object lives on its own full-frame WebGL canvas throughout — it
+     never disappears between "environment" and "assistant" states, it only
+     changes size/position/energy. This is what makes the opening sequence
+     read as the same living thing relocating, not a swap between a hero
+     graphic and an unrelated chat icon. It sits BELOW the home photo at
+     entry (z-index 1, home screen at z-index 10) and is only uncovered once
+     the photo dissolves away — same layering idea as the Glass Cube. */
+
+  #framePre canvas#glPre {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  /* ===================== HOME SCREEN (entry point) ===================== */
+  /* Same entry point as every other Lumi exploration: a real property photo
+     fills the frame, with a floating "Ask Lumi" pill near the bottom. The
+     only Air-specific difference is the pill's icon — a tiny live render of
+     the same presence object, not the glass cube — and a dark glass
+     treatment on the pill so it sits naturally on a photo. */
+
+  #framePre .home-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: var(--numa-black);
+    transition: filter 0.5s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.4s ease;
+    filter: blur(0px) brightness(1);
+  }
+
+  #framePre .home-screen img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+  }
+
+  #framePre .ask-lumi-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 13%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 22px 8px 10px;
+    height: 46px;
+    border-radius: 100px;
+    border: none;
+    background: rgba(25,25,25,0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+      0 1px 1px rgba(255,255,255,0.08) inset,
+      0 10px 30px rgba(0,0,0,0.35),
+      0 2px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    font-family: var(--font-family);
+  }
+
+  #framePre .ask-lumi-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  #framePre .ask-lumi-btn span {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--white);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+  }
+
+  #framePre .home-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 11;
+    background: var(--numa-black);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  /* phase 1 (0–300ms): scrim gradually appears, blur begins subtly */
+  #framePre[data-transition="darken"] .home-screen {
+    filter: blur(4px) brightness(0.98);
+    transition: filter 0.3s ease-in;
+  }
+  #framePre[data-transition="darken"] .home-scrim {
+    opacity: 0.35;
+    transition: opacity 0.3s ease-in;
+  }
+
+  /* phase 2 (300–800ms): blur progressively deepens to maximum */
+  #framePre[data-transition="blur-peak"] .home-screen {
+    filter: blur(40px) brightness(0.9);
+    transition: filter 0.5s cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  #framePre[data-transition="blur-peak"] .home-scrim {
+    opacity: 0.55;
+    transition: opacity 0.5s ease;
+  }
+
+  /* phase 3 (800–1000ms): brief hold at maximum blur */
+  #framePre[data-transition="hold"] .home-screen {
+    filter: blur(40px) brightness(0.9);
+    transition: none;
+  }
+  #framePre[data-transition="hold"] .home-scrim {
+    opacity: 0.55;
+    transition: none;
+  }
+
+  /* phase 4 (1000–1400ms): the dark presence environment + chat gradually
+     resolve in as the blurred, darkened home photo dissolves away */
+  #framePre[data-stage="chat"] .home-screen {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease-out, filter 0.4s ease-out;
+  }
+  #framePre[data-stage="chat"] .home-scrim {
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+  }
+  #framePre[data-stage="chat"][data-transition="hold"] .home-screen {
+    opacity: 1;
+    filter: blur(40px) brightness(0.9);
+    transition: none;
+  }
+  #framePre[data-stage="chat"][data-transition="hold"] .home-scrim {
+    opacity: 0.55;
+    transition: none;
+  }
+
+  /* ===================== TOP BAR ===================== */
+
+  #framePre .air-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 30px 20px 0 54px; /* left padding clears the docked light badge */
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1);
+    pointer-events: none;
+  }
+
+  #framePre[data-stage="chat"] .air-topbar {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  #framePre .air-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--air-text-60);
+  }
+
+  #framePre .air-close .material-symbols-outlined { font-size: 17px; }
+
+  /* ===================== CHAT LAYER ===================== */
+
+  #framePre .chat-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    padding-top: 78px; /* clears the topbar + relocated object */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease 0.15s;
+  }
+
+  #framePre[data-stage="chat"] .chat-layer {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ---- welcome (greeting + quick actions) ---- */
+
+  #framePre .welcome-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 22px;
+    padding: 20px 22px 14px;
+  }
+
+  #framePre .welcome-greeting {
+    display: flex;
+    flex-direction: column;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    color: var(--air-text);
+  }
+
+  #framePre .welcome-greeting-line {
+    display: block;
+  }
+
+  /* only one greeting shows at a time, matched to the active scenario pill */
+  #framePre #barcelonaGreetingPre { display: none; }
+  #framePre[data-mode="barcelona"] #prebookingGreetingPre { display: none; }
+  #framePre[data-mode="barcelona"] #barcelonaGreetingPre { display: flex; }
+
+  /* only one quick-action set shows at a time, matched to the active
+     scenario pill — Barcelona booked's is untouched (2-column grid) */
+  #framePre #barcelonaActionsPre { display: none; }
+  #framePre[data-mode="barcelona"] #prebookingActionsPre { display: none; }
+  #framePre[data-mode="barcelona"] #barcelonaActionsPre { display: grid; }
+
+  #framePre .welcome-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* Pre-booking's quick actions stack one per line instead of the 2-column
+     grid — same button styling/spacing/icons/interaction, just a single
+     column layout for these three longer, sentence-style prompts. Comes
+     after the base .welcome-actions rule so it wins on specificity tie. */
+  #framePre .welcome-actions--stacked {
+    grid-template-columns: 1fr;
+  }
+
+  #framePre .welcome-action {
+    appearance: none;
+    border: 1px solid var(--air-line);
+    background: var(--air-surface-2);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 15px;
+    border-radius: 16px;
+    font-family: var(--font-family);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--air-text);
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  #framePre .welcome-action:hover {
+    background: #2e2e2e;
+    border-color: var(--air-line-strong);
+  }
+
+  #framePre .welcome-action .material-symbols-outlined {
+    font-size: 19px;
+    color: var(--air-text-60);
+    flex-shrink: 0;
+  }
+
+  #framePre .welcome-greeting-line,
+  #framePre .welcome-actions {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  #framePre .welcome-greeting-line.visible,
+  #framePre .welcome-actions.visible {
+    animation: airInPre 0.55s cubic-bezier(0.25,0.1,0.25,1) forwards;
+  }
+
+  @keyframes airInPre { to { opacity: 1; transform: translateY(0); } }
+
+  /* view swap — exactly one of these is visible at a time:
+       welcome       -> greeting + quick actions (original)
+       conversation  -> the existing "Ask anything" AC-repair thread (original)
+       stay-convo    -> the "Where should I stay?" thread — the curated
+                        Barcelona picks arrive as Lumi messages INSIDE this
+                        same scrolling thread, never a separate screen
+     Default: everything but the active view's own content is hidden, then
+     each view below opts itself back in. */
+  #framePre #chatBodyPre, #framePre #stayChatBodyPre, #framePre #welcomeScreenPre { display: none; }
+  #framePre .chat-layer[data-view="welcome"] #welcomeScreenPre { display: flex; }
+  #framePre .chat-layer[data-view="conversation"] #chatBodyPre { display: flex; }
+  #framePre .chat-layer[data-view="stay-convo"] #stayChatBodyPre { display: flex; }
+
+  /* ---- conversation ---- */
+
+  #framePre .chat-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px 20px 14px;
+    overflow: hidden;
+  }
+
+  #framePre .msg {
+    max-width: 82%;
+    padding: 13px 17px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.45;
+    letter-spacing: -0.2px;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  #framePre .msg.visible { animation: msgInPre 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+  @keyframes msgInPre { to { opacity: 1; transform: translateY(0); } }
+
+  /* "Where should I stay?" messages only — a softer, slower entrance than
+     the shared .msg.visible above (which stays exactly as-is for the
+     untouched "Ask anything" thread). Minimal movement (a much smaller
+     initial offset than the shared .msg's 10px), mostly a gentle fade,
+     and a longer duration so it reads as easing in alongside the scroll
+     rather than popping in before the scroll reacts. */
+  #framePre #stayChatScrollPre .msg {
+    transform: translateY(4px);
+  }
+
+  #framePre #stayChatScrollPre .msg.stay-visible {
+    animation: stayMsgInPre 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes stayMsgInPre {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* The typing/thinking bubble (.typing) is a separate element from .msg
+     and has its own reveal rule (.typing.visible below) keyed to the
+     'visible' class — but appendStayMsg marks stay-flow messages with
+     'stay-visible' instead, so the typing bubble built for this thread
+     never picked up its reveal animation and stayed at opacity:0. This
+     mirrors .typing.visible exactly (same animation/timing), just keyed
+     to the class this thread actually uses. */
+  #framePre #stayChatScrollPre .typing.stay-visible { animation: msgInPre 0.3s ease forwards; }
+
+  #framePre .msg.lumi {
+    align-self: flex-start;
+    background: var(--air-surface-1);
+    border: 1px solid var(--air-line);
+    color: var(--air-text);
+    border-bottom-left-radius: 6px;
+  }
+
+  #framePre .msg.guest {
+    align-self: flex-end;
+    background: var(--white);
+    color: var(--numa-black);
+    border-bottom-right-radius: 6px;
+  }
+
+  #framePre .msg.action {
+    align-self: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--air-line);
+    color: var(--air-text-60);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    text-align: center;
+  }
+
+  #framePre .typing {
+    align-self: flex-start;
+    display: flex;
+    gap: 4px;
+    padding: 15px 18px;
+    background: var(--air-surface-1);
+    border: 1px solid var(--air-line);
+    border-radius: 20px;
+    border-bottom-left-radius: 6px;
+    opacity: 0;
+  }
+
+  #framePre .typing.visible { animation: msgInPre 0.3s ease forwards; }
+
+  #framePre .typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--air-text-40);
+    animation: bouncePre 1.2s ease-in-out infinite;
+  }
+  #framePre .typing span:nth-child(2) { animation-delay: 0.15s; }
+  #framePre .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bouncePre {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* ---- "Where should I stay?" thread — a real, growing chat thread ---- */
+  /* The base .chat-body is overflow:hidden, sized via flex:1 directly on
+     the flex-column .chat-layer — right for the original "Ask anything"
+     thread (#chatBodyPre), a small fixed set of messages that always fits.
+     #stayChatBodyPre needs to actually SCROLL once its content (messages
+     inserted only as they're revealed — never pre-rendered ahead of time)
+     exceeds the viewport, but overflow-y:auto on the SAME element that is
+     itself sized by flex:1/flex-basis:0% is a real, documented Chromium/
+     WebKit limitation: scrollHeight gets clamped to the flex-computed
+     size and the overflow becomes unreachable via scrollTop or user
+     scroll input, no matter how justify-content is set. The fix real chat
+     UIs use: keep #stayChatBodyPre as a plain flex-sized, non-scrolling
+     box, and do the actual scrolling one level down, on an ordinary
+     block-level child that flexbox sizing never touches. */
+  #framePre #stayChatBodyPre {
+    /* overflow must stay non-"visible" here (hidden, not auto — the
+       actual scrolling happens one level in, on .stay-chat-scroll) so the
+       browser's automatic flex-item minimum size resolves to 0 instead of
+       to its content's height — overflow:visible on a flex:1 item is
+       exactly what let #stayChatBodyPre itself grow to fit all its content
+       instead of staying clamped to the space .chat-layer gives it. */
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #framePre .stay-chat-scroll {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox: native scrolling, no visible bar */
+    gap: 10px;
+    /* Top padding clears the fade's own 130px fully-opaque point (see
+       mask-image below) with a small amount of breathing room to spare,
+       then the "Today" marker itself (.stay-chat-date, first child after
+       the spacer) fills most of the remaining gap above the first
+       message. This is spacing only — it does not touch the fade
+       itself, which starts/ends at the same pixel offsets as before. */
+    padding: 105px 20px 14px;
+    /* Soft fade instead of the hard clip #stayChatBodyPre's overflow:hidden
+       would otherwise draw: messages stay fully opaque until ~130px below
+       the scroll area's own top edge (NOT the topbar itself — the topbar
+       already has its own reserved space via .chat-layer's padding-top,
+       so this is measured from where the scrollable list actually
+       starts), then ease down to fully transparent by ~40px — leaving a
+       genuine empty gap between "fully invisible" and the scroll area's
+       own top edge (where the Lumi/header area begins), instead of a
+       bubble still being partially visible right up against it. The
+       gradient's own shape/width is unchanged from before — both stops
+       were moved down together, not just the opaque one.
+       mask-image composites correctly with overflow-y:auto scrolling —
+       it re-evaluates against the viewport, not the scrolled content, so
+       every message fades identically as it passes through, with no
+       jump or seam. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 40px, black 130px, black 100%);
+    mask-image: linear-gradient(to bottom, transparent 40px, black 130px, black 100%);
+  }
+
+  #framePre .stay-chat-scroll::-webkit-scrollbar {
+    display: none; /* WebKit/Blink: native scrolling, no visible bar */
+  }
+
+  /* A per-bubble blur that only dissolves the exact sliver of each
+     message currently inside the transition zone — never a fixed strip
+     over the whole scroll area — isn't achievable with backdrop-filter:
+     it composites against everything visually behind that band (here,
+     that includes the Spotlight's light/beam, which must stay perfectly
+     sharp), not just the bubble passing through it. A real edge-blur
+     would need per-message scroll-position tracking in JS to size a
+     mask to each bubble individually — real complexity for a purely
+     decorative refinement. Per instruction, skipping the blur and
+     keeping only the opacity fade above, which already reads as a clean
+     dissolve on its own. */
+
+  /* Shrinks to nothing once real content fills/exceeds the viewport, so
+     scrolling then behaves exactly like an ordinary top-down chat list;
+     while content is short it pushes messages down against the input. */
+  #framePre .stay-chat-spacer {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* A small, understated date pin marking the start of the conversation —
+     same idea as a native messaging app's "Today" divider. Deliberately
+     quieter than any real message: no pill, no background, just small
+     muted label text, centered, sitting in the same top gap the fade
+     already clears. Not part of the scenario's scripted timeline — it's
+     always the first thing in the thread, present from scrollTop 0. */
+  #framePre .stay-chat-date {
+    flex: none;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--air-text-60);
+    opacity: 0.7;
+  }
+
+  /* ---- "Where should I stay?" curated recommendations ---- */
+  /* Each recommendation is its own Lumi message — same bubble language as
+     the rest of the thread, just wider to hold a short "why this fits"
+     line and a small gallery, so it reads as Lumi continuing to talk and
+     curating, never as a separate search-results screen. */
+
+  #framePre .msg.stay-rec-msg {
+    max-width: 92%;
+    padding: 15px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #framePre .stay-rec-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--air-text);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  #framePre .stay-rec-hood {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: -0.1px;
+    color: var(--air-text-60);
+    white-space: nowrap;
+  }
+
+  #framePre .stay-rec-why {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: -0.2px;
+    color: var(--air-text);
+  }
+
+  /* One real property photo per recommendation, cropped to a fixed 16:9
+     frame — replaces the earlier 3-image placeholder gallery grid. */
+  #framePre .stay-rec-gallery {
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #framePre .stay-rec-gallery img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  #framePre .stay-rec-explore {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 0;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-family);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    color: var(--numa-pink);
+    cursor: pointer;
+  }
+
+  #framePre .stay-rec-explore .material-symbols-outlined {
+    font-size: 16px;
+  }
+
+  /* ---- input row ---- */
+
+  #framePre .chat-input-row {
+    flex-shrink: 0;
+    padding: 12px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #framePre .chat-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    background: var(--air-surface-1);
+    border: 1px solid var(--air-line);
+    border-radius: 100px;
+    padding: 8px 8px 8px 18px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  #framePre .chat-input.active-input {
+    background: #262626;
+    border-color: var(--air-line-strong);
+  }
+
+  #framePre .chat-input input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 14.5px;
+    font-weight: 300;
+    letter-spacing: -0.2px;
+    color: var(--air-text);
+    pointer-events: none;
+  }
+
+  #framePre .chat-input input::placeholder { color: var(--air-text-40); }
+
+  #framePre .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--white);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  #framePre .send-btn svg { width: 15px; height: 15px; }
+
+  /* ===================== BOTTOM DEV CONTROL (Pre Booking's own) ===================== */
+
+  #stateSwitcherPre {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 100px;
+    padding: 4px;
+    z-index: 100;
+  }
+
+  #stateSwitcherPre button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: color 0.25s ease, background 0.25s ease;
+  }
+
+  #stateSwitcherPre button:hover { color: rgba(255,255,255,0.7); }
+
+  #stateSwitcherPre button.active {
+    background: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.95);
+  }
+
+  /* ==========================================================================
+     BARCELONA BOOKED — INDEPENDENT WORKING COPY. Safe to change freely.
+     ==========================================================================
+     This block started as an exact duplicate of the PRE BOOKING block above
+     on 2026-09-18. Every selector here is scoped under #frameBcn (its own
+     ids, all suffixed "Bcn") and its own @keyframes names (suffixed "Bcn"),
+     so nothing here can ever match or override anything in the PRE BOOKING
+     block, and nothing there can ever match or override anything here —
+     even though both currently look identical. Change colors, spacing,
+     layout, animations, anything, freely from here down.
+     ========================================================================== */
+  #frameBcn {
+    --numa-pink-bcn: #ffc9d2;
+    --numa-black-bcn: #191919;
+    --white-bcn: #ffffff;
+
+    --air-bg-bcn: #191919;
+    --air-surface-1-bcn: #212121;
+    --air-surface-2-bcn: #272727;
+    --air-line-bcn: rgba(255,255,255,0.08);
+    --air-line-strong-bcn: rgba(255,255,255,0.14);
+    --air-text-bcn: rgba(255,255,255,0.94);
+    --air-text-60-bcn: rgba(255,255,255,0.6);
+    --air-text-40-bcn: rgba(255,255,255,0.4);
+
+    position: relative;
+    width: 385px;
+    height: 860px;
+    max-height: 92vh;
+    aspect-ratio: 1280 / 2856;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 100px rgba(0,0,0,0.55),
+      0 4px 24px rgba(0,0,0,0.4);
+    background: var(--air-bg-bcn);
+    font-family: "lausanne", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  #frameBcn canvas#glBcn {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  #frameBcn .home-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: var(--numa-black-bcn);
+    transition: filter 0.5s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.4s ease;
+    filter: blur(0px) brightness(1);
+  }
+
+  #frameBcn .home-screen img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+  }
+
+  #frameBcn .ask-lumi-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 13%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 22px 8px 10px;
+    height: 46px;
+    border-radius: 100px;
+    border: none;
+    background: rgba(25,25,25,0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+      0 1px 1px rgba(255,255,255,0.08) inset,
+      0 10px 30px rgba(0,0,0,0.35),
+      0 2px 8px rgba(0,0,0,0.2);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  #frameBcn .ask-lumi-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  #frameBcn .ask-lumi-btn span {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--white-bcn);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+  }
+
+  #frameBcn .home-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 11;
+    background: var(--numa-black-bcn);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  #frameBcn[data-transition="darken"] .home-screen {
+    filter: blur(4px) brightness(0.98);
+    transition: filter 0.3s ease-in;
+  }
+  #frameBcn[data-transition="darken"] .home-scrim {
+    opacity: 0.35;
+    transition: opacity 0.3s ease-in;
+  }
+
+  #frameBcn[data-transition="blur-peak"] .home-screen {
+    filter: blur(40px) brightness(0.9);
+    transition: filter 0.5s cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  #frameBcn[data-transition="blur-peak"] .home-scrim {
+    opacity: 0.55;
+    transition: opacity 0.5s ease;
+  }
+
+  #frameBcn[data-transition="hold"] .home-screen {
+    filter: blur(40px) brightness(0.9);
+    transition: none;
+  }
+  #frameBcn[data-transition="hold"] .home-scrim {
+    opacity: 0.55;
+    transition: none;
+  }
+
+  #frameBcn[data-stage="chat"] .home-screen {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease-out, filter 0.4s ease-out;
+  }
+  #frameBcn[data-stage="chat"] .home-scrim {
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+  }
+  #frameBcn[data-stage="chat"][data-transition="hold"] .home-screen {
+    opacity: 1;
+    filter: blur(40px) brightness(0.9);
+    transition: none;
+  }
+  #frameBcn[data-stage="chat"][data-transition="hold"] .home-scrim {
+    opacity: 0.55;
+    transition: none;
+  }
+
+  #frameBcn .air-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 30px 20px 0 54px;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1);
+    pointer-events: none;
+  }
+
+  #frameBcn[data-stage="chat"] .air-topbar {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  #frameBcn .air-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--air-text-60-bcn);
+  }
+
+  #frameBcn .air-close .material-symbols-outlined { font-size: 17px; }
+
+  #frameBcn .chat-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    padding-top: 78px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease 0.15s;
+  }
+
+  #frameBcn[data-stage="chat"] .chat-layer {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #frameBcn .welcome-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 22px;
+    padding: 20px 22px 14px;
+  }
+
+  #frameBcn .welcome-greeting {
+    display: flex;
+    flex-direction: column;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    color: var(--air-text-bcn);
+  }
+
+  #frameBcn .welcome-greeting-line {
+    display: block;
+  }
+
+  #frameBcn #barcelonaGreetingBcn { display: none; }
+  #frameBcn[data-mode="barcelona"] #prebookingGreetingBcn { display: none; }
+  #frameBcn[data-mode="barcelona"] #barcelonaGreetingBcn { display: flex; }
+
+  #frameBcn #barcelonaActionsBcn { display: none; }
+  #frameBcn[data-mode="barcelona"] #prebookingActionsBcn { display: none; }
+  #frameBcn[data-mode="barcelona"] #barcelonaActionsBcn { display: grid; }
+
+  #frameBcn .welcome-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  #frameBcn .welcome-actions--stacked {
+    grid-template-columns: 1fr;
+  }
+
+  #frameBcn .welcome-action {
+    appearance: none;
+    border: 1px solid var(--air-line-bcn);
+    background: var(--air-surface-2-bcn);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 15px;
+    border-radius: 16px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--air-text-bcn);
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  #frameBcn .welcome-action:hover {
+    background: #2e2e2e;
+    border-color: var(--air-line-strong-bcn);
+  }
+
+  #frameBcn .welcome-action .material-symbols-outlined {
+    font-size: 19px;
+    color: var(--air-text-60-bcn);
+    flex-shrink: 0;
+  }
+
+  #frameBcn .welcome-greeting-line,
+  #frameBcn .welcome-actions {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  #frameBcn .welcome-greeting-line.visible,
+  #frameBcn .welcome-actions.visible {
+    animation: airInBcn 0.55s cubic-bezier(0.25,0.1,0.25,1) forwards;
+  }
+
+  @keyframes airInBcn { to { opacity: 1; transform: translateY(0); } }
+
+  #frameBcn #chatBodyBcn, #frameBcn #stayChatBodyBcn, #frameBcn #welcomeScreenBcn { display: none; }
+  #frameBcn .chat-layer[data-view="welcome"] #welcomeScreenBcn { display: flex; }
+  #frameBcn .chat-layer[data-view="conversation"] #chatBodyBcn { display: flex; }
+  #frameBcn .chat-layer[data-view="stay-convo"] #stayChatBodyBcn { display: flex; }
+
+  #frameBcn .chat-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px 20px 14px;
+    overflow: hidden;
+  }
+
+  #frameBcn .msg {
+    max-width: 82%;
+    padding: 13px 17px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.45;
+    letter-spacing: -0.2px;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  #frameBcn .msg.visible { animation: msgInBcn 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+  @keyframes msgInBcn { to { opacity: 1; transform: translateY(0); } }
+
+  #frameBcn #stayChatScrollBcn .msg {
+    transform: translateY(4px);
+  }
+
+  #frameBcn #stayChatScrollBcn .msg.stay-visible {
+    animation: stayMsgInBcn 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes stayMsgInBcn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  #frameBcn #stayChatScrollBcn .typing.stay-visible { animation: msgInBcn 0.3s ease forwards; }
+
+  #frameBcn .msg.lumi {
+    align-self: flex-start;
+    background: var(--air-surface-1-bcn);
+    border: 1px solid var(--air-line-bcn);
+    color: var(--air-text-bcn);
+    border-bottom-left-radius: 6px;
+  }
+
+  #frameBcn .msg.guest {
+    align-self: flex-end;
+    background: var(--white-bcn);
+    color: var(--numa-black-bcn);
+    border-bottom-right-radius: 6px;
+  }
+
+  #frameBcn .msg.action {
+    align-self: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--air-line-bcn);
+    color: var(--air-text-60-bcn);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    text-align: center;
+  }
+
+  #frameBcn .typing {
+    align-self: flex-start;
+    display: flex;
+    gap: 4px;
+    padding: 15px 18px;
+    background: var(--air-surface-1-bcn);
+    border: 1px solid var(--air-line-bcn);
+    border-radius: 20px;
+    border-bottom-left-radius: 6px;
+    opacity: 0;
+  }
+
+  #frameBcn .typing.visible { animation: msgInBcn 0.3s ease forwards; }
+
+  #frameBcn .typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--air-text-40-bcn);
+    animation: bounceBcn 1.2s ease-in-out infinite;
+  }
+  #frameBcn .typing span:nth-child(2) { animation-delay: 0.15s; }
+  #frameBcn .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounceBcn {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  #frameBcn #stayChatBodyBcn {
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #frameBcn .stay-chat-scroll {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 10px;
+    padding: 105px 20px 14px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 40px, black 130px, black 100%);
+    mask-image: linear-gradient(to bottom, transparent 40px, black 130px, black 100%);
+  }
+
+  #frameBcn .stay-chat-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  #frameBcn .stay-chat-spacer {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  #frameBcn .stay-chat-date {
+    flex: none;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--air-text-60-bcn);
+    opacity: 0.7;
+  }
+
+  #frameBcn .msg.stay-rec-msg {
+    max-width: 92%;
+    padding: 15px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #frameBcn .stay-rec-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--air-text-bcn);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  #frameBcn .stay-rec-hood {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: -0.1px;
+    color: var(--air-text-60-bcn);
+    white-space: nowrap;
+  }
+
+  #frameBcn .stay-rec-why {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: -0.2px;
+    color: var(--air-text-bcn);
+  }
+
+  #frameBcn .stay-rec-gallery {
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #frameBcn .stay-rec-gallery img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  #frameBcn .stay-rec-explore {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 0;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    color: var(--numa-pink-bcn);
+    cursor: pointer;
+  }
+
+  #frameBcn .stay-rec-explore .material-symbols-outlined {
+    font-size: 16px;
+  }
+
+  /* ---- "Doors" quick action — a short scripted thread of its own,
+     entirely separate from "Where should I stay?" (its own container,
+     own ids, own timers) so neither can affect the other. ---- */
+
+  /* The welcome screen (greeting + quick actions) fades/slides upward
+     and away BEFORE the chat thread view swaps in — a real transition,
+     not the instant display:none/flex swap the view-swap rule below
+     still uses for the swap itself once this finishes. */
+  @keyframes welcomeExitBcn {
+    to { opacity: 0; transform: translateY(-14px); }
+  }
+  #frameBcn .welcome-screen.exiting {
+    animation: welcomeExitBcn 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+
+  #frameBcn #doorsChatBodyBcn { display: none; }
+  #frameBcn .chat-layer[data-view="doors-convo"] #doorsChatBodyBcn { display: flex; }
+  /* the exit-fade above only applies while the welcome view is still the
+     active one, so a fresh Doors run right after a reset never starts
+     mid-fade */
+  #frameBcn .chat-layer[data-view="doors-convo"] #welcomeScreenBcn { display: none; }
+
+  .door-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .door-btn {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    appearance: none;
+    border: 1px solid var(--air-line-bcn);
+    background: var(--air-surface-2-bcn);
+    color: var(--air-text-bcn);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    padding: 14px 10px;
+    border-radius: 14px;
+    text-align: center;
+    cursor: pointer;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+    transition: border-color 0.2s ease;
+  }
+
+  /* The charge fill — a soft violet wash that grows from the bottom of
+     the button up to full height over the hold duration. A plain scaled
+     child element (not a CSS transition on press, since the JS driving
+     the actual hold duration needs to set its progress directly, frame
+     by frame, so it can be released/reset at any moment mid-hold without
+     fighting a CSS transition's own timing). */
+  .door-btn-charge {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(94, 91, 255, 0.55), rgba(94, 91, 255, 0.15));
+    transform: scaleY(0);
+    transform-origin: bottom;
+    pointer-events: none;
+  }
+
+  .door-btn-label {
+    position: relative;
+    z-index: 1;
+  }
+
+  .door-btn.charging {
+    border-color: rgba(94, 91, 255, 0.5);
+  }
+
+  .door-btn.charged {
+    border-color: rgba(94, 91, 255, 0.8);
+  }
+
+  #frameBcn .chat-input-row {
+    flex-shrink: 0;
+    padding: 12px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #frameBcn .chat-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    background: var(--air-surface-1-bcn);
+    border: 1px solid var(--air-line-bcn);
+    border-radius: 100px;
+    padding: 8px 8px 8px 18px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  #frameBcn .chat-input.active-input {
+    background: #262626;
+    border-color: var(--air-line-strong-bcn);
+  }
+
+  #frameBcn .chat-input input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 300;
+    letter-spacing: -0.2px;
+    color: var(--air-text-bcn);
+    pointer-events: none;
+  }
+
+  #frameBcn .chat-input input::placeholder { color: var(--air-text-40-bcn); }
+
+  #frameBcn .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--white-bcn);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  #frameBcn .send-btn svg { width: 15px; height: 15px; }
+
+  /* ===================== BOTTOM DEV CONTROL (Barcelona's own) ===================== */
+
+  #stateSwitcherBcn {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 100px;
+    padding: 4px;
+    z-index: 100;
+  }
+
+  #stateSwitcherBcn button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.4);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: color 0.25s ease, background 0.25s ease;
+  }
+
+  #stateSwitcherBcn button:hover { color: rgba(255,255,255,0.7); }
+
+  #stateSwitcherBcn button.active {
+    background: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.95);
+  }
+</style>
+</head>
+<body>
+
+<div class="corner-tag">Lumi Spotlight</div>
+
+<div class="exploration-switcher" id="explorationSwitcher">
+  <button data-target="pre" class="active">Pre-booking</button>
+  <button data-target="bcn">Barcelona booked</button>
+</div>
+
+<div class="stage">
+
+  <!-- ==========================================================================
+       PRE BOOKING — FROZEN REFERENCE. DO NOT MODIFY MARKUP BELOW.
+       ========================================================================== -->
+  <div class="scenario-wrap active" id="scenarioPre">
+    <div class="frame" id="framePre" data-stage="entry" data-mode="prebooking">
+      <canvas id="glPre"></canvas>
+
+      <div class="air-topbar">
+        <button class="air-close" id="closeBtnPre"><span class="material-symbols-outlined">close</span></button>
+      </div>
+
+      <div class="home-screen" id="homeScreenPre">
+        <img src="home_numa.jpg" alt="" />
+        <button class="ask-lumi-btn" id="askLumiBtnPre">
+          <canvas class="ask-lumi-icon" id="askLumiIconPre"></canvas>
+          <span>Ask Lumi</span>
+        </button>
+      </div>
+      <div class="home-scrim"></div>
+
+      <div class="chat-layer" id="chatLayerPre" data-view="welcome">
+        <div class="welcome-screen" id="welcomeScreenPre">
+          <div class="welcome-greeting" id="prebookingGreetingPre">
+            <span class="welcome-greeting-line" id="greetingLine1Pre">Good evening, Sarah.</span>
+            <span class="welcome-greeting-line" id="greetingLine2Pre">How can I help?</span>
+          </div>
+          <div class="welcome-greeting" id="barcelonaGreetingPre">
+            <span class="welcome-greeting-line" id="greetingLineBarcelonaPre">How can I help you today?</span>
+          </div>
+          <div class="welcome-actions welcome-actions--stacked" id="prebookingActionsPre">
+            <button class="welcome-action" id="whereStayBtnPre"><span class="material-symbols-outlined">explore</span>Where should I stay?</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">map</span>Help me plan my trip</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">info</span>Tell me about Numa</button>
+          </div>
+          <div class="welcome-actions" id="barcelonaActionsPre">
+            <button class="welcome-action"><span class="material-symbols-outlined">door_front</span>Doors</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">wifi</span>Wi-Fi</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">schedule</span>Late checkout</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">logout</span>Checkout</button>
+          </div>
+        </div>
+
+        <div class="chat-body" id="chatBodyPre">
+          <div class="msg guest" id="guestMsgPre">The AC in my room isn't working.</div>
+          <div class="typing" id="typingIndicatorPre"><span></span><span></span><span></span></div>
+          <div class="msg lumi" id="lumiResponseMsgPre">I'll get someone to take a look.</div>
+          <div class="msg action" id="actionMsgPre">Reported to maintenance.</div>
+          <div class="msg lumi" id="confirmMsgPre">All set. Someone will be with you shortly.</div>
+        </div>
+
+        <div class="chat-body" id="stayChatBodyPre">
+          <div class="stay-chat-scroll" id="stayChatScrollPre"><div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div></div>
+        </div>
+
+        <div class="chat-input-row">
+          <div class="chat-input" id="askAnythingBtnPre">
+            <input type="text" id="askAnythingInputPre" placeholder="Ask anything..." disabled />
+            <button class="send-btn" id="askAnythingSendPre">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="#191919" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       BARCELONA BOOKED — INDEPENDENT WORKING COPY. Safe to change freely.
+       ========================================================================== -->
+  <div class="scenario-wrap" id="scenarioBcn">
+    <div class="frame" id="frameBcn" data-stage="entry" data-mode="barcelona">
+      <canvas id="glBcn"></canvas>
+
+      <div class="air-topbar">
+        <button class="air-close" id="closeBtnBcn"><span class="material-symbols-outlined">close</span></button>
+      </div>
+
+      <div class="home-screen" id="homeScreenBcn">
+        <img src="home_numa.jpg" alt="" />
+        <button class="ask-lumi-btn" id="askLumiBtnBcn">
+          <canvas class="ask-lumi-icon" id="askLumiIconBcn"></canvas>
+          <span>Ask Lumi</span>
+        </button>
+      </div>
+      <div class="home-scrim"></div>
+
+      <div class="chat-layer" id="chatLayerBcn" data-view="welcome">
+        <div class="welcome-screen" id="welcomeScreenBcn">
+          <div class="welcome-greeting" id="prebookingGreetingBcn">
+            <span class="welcome-greeting-line" id="greetingLine1Bcn">Good evening, Sarah.</span>
+            <span class="welcome-greeting-line" id="greetingLine2Bcn">How can I help?</span>
+          </div>
+          <div class="welcome-greeting" id="barcelonaGreetingBcn">
+            <span class="welcome-greeting-line" id="greetingLineBarcelonaBcn">Welcome to Barcelona, Sarah.</span>
+            <span class="welcome-greeting-line" id="greetingLineBarcelona2Bcn">How can I help?</span>
+          </div>
+          <div class="welcome-actions welcome-actions--stacked" id="prebookingActionsBcn">
+            <button class="welcome-action" id="whereStayBtnBcn"><span class="material-symbols-outlined">explore</span>Where should I stay?</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">map</span>Help me plan my trip</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">info</span>Tell me about Numa</button>
+          </div>
+          <div class="welcome-actions" id="barcelonaActionsBcn">
+            <button class="welcome-action" id="doorsBtnBcn"><span class="material-symbols-outlined">door_front</span>Doors</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">wifi</span>Wi-Fi</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">schedule</span>Late check-out</button>
+            <button class="welcome-action"><span class="material-symbols-outlined">place</span>Nearby</button>
+          </div>
+        </div>
+
+        <div class="chat-body" id="chatBodyBcn">
+          <div class="msg guest" id="guestMsgBcn">The AC in my room isn't working.</div>
+          <div class="typing" id="typingIndicatorBcn"><span></span><span></span><span></span></div>
+          <div class="msg lumi" id="lumiResponseMsgBcn">I'll get someone to take a look.</div>
+          <div class="msg action" id="actionMsgBcn">Reported to maintenance.</div>
+          <div class="msg lumi" id="confirmMsgBcn">All set. Someone will be with you shortly.</div>
+        </div>
+
+        <div class="chat-body" id="stayChatBodyBcn">
+          <div class="stay-chat-scroll" id="stayChatScrollBcn"><div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div></div>
+        </div>
+
+        <div class="chat-body" id="doorsChatBodyBcn">
+          <div class="stay-chat-scroll" id="doorsChatScrollBcn"><div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div></div>
+        </div>
+
+        <div class="chat-input-row">
+          <div class="chat-input" id="askAnythingBtnBcn">
+            <input type="text" id="askAnythingInputBcn" placeholder="Ask anything..." disabled />
+            <button class="send-btn" id="askAnythingSendBcn">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="#191919" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="state-switcher" id="stateSwitcherPre">
+  <button data-state="idle" class="active">Idle</button>
+  <button data-state="thinking">Thinking</button>
+  <button data-state="success">Success</button>
+</div>
+
+<div class="state-switcher" id="stateSwitcherBcn" style="display:none;">
+  <button data-state="idle" class="active">Idle</button>
+  <button data-state="thinking">Thinking</button>
+  <button data-state="success">Success</button>
+</div>
+
+<script>
+/* =========================================================================
+   OUTER SHELL SCRIPT — only the top pill switcher. This is the ONLY script
+   code shared between the two scenarios, and it contains no scenario logic
+   itself: it just toggles which .scenario-wrap/.state-switcher is visible
+   and calls each scenario's own, independently-scoped goToEntry() so
+   switching away always resets the one being hidden (matching how the
+   original single-scenario switcher already behaved on every click).
+   ========================================================================= */
+document.getElementById('explorationSwitcher').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#explorationSwitcher button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const target = btn.dataset.target;
+  document.getElementById('scenarioPre').classList.toggle('active', target === 'pre');
+  document.getElementById('scenarioBcn').classList.toggle('active', target === 'bcn');
+  document.getElementById('stateSwitcherPre').style.display = target === 'pre' ? '' : 'none';
+  document.getElementById('stateSwitcherBcn').style.display = target === 'bcn' ? '' : 'none';
+
+  // Reset BOTH on every switch (matches the original behavior of always
+  // resetting to Home on any switcher click) — each call only ever
+  // touches its own scenario's own ids/state.
+  if (window.LumiPre) window.LumiPre.goToEntry();
+  if (window.LumiBcn) window.LumiBcn.goToEntry();
+
+  // The just-activated scenario's canvas may have been sized while its
+  // .scenario-wrap was display:none (0x0 layout box) — at page load, or
+  // the very first time this tab is switched to — so its WebGL drawing
+  // buffer can be stuck at 0x0 even though the CSS box is the right
+  // size. Re-run its own resize() now that the .active class above has
+  // actually made it visible, so getBoundingClientRect() reports the
+  // real size. The other (now-hidden) scenario's canvas is untouched.
+  if (target === 'pre' && window.LumiPre) window.LumiPre.resize();
+  if (target === 'bcn' && window.LumiBcn) window.LumiBcn.resize();
+});
+
+/* =========================================================================
+   LUMI SPOTLIGHT — PRE BOOKING (frozen reference)
+   =========================================================================
+   Exact port of the original single-scenario implementation, wrapped in
+   its own IIFE and exposed as window.LumiPre only so the outer switcher
+   above can call goToEntry() on tab switch. Every internal identifier
+   (canvas, DOM ids, function/variable names) is scoped to THIS closure —
+   the Barcelona IIFE below reuses many of the exact same names inside its
+   own separate closure, and the two can never collide or see each other.
+   Do not modify anything inside this IIFE.
+   ========================================================================= */
+(function() {
+
+const canvas = document.getElementById('glPre');
+const gl = canvas.getContext('webgl', { antialias: true, alpha: false, premultipliedAlpha: false });
+
+if (!gl) {
+  document.getElementById('framePre').style.background = '#191919';
+  console.warn('WebGL not available.');
+}
+
+function resize() {
+  const frame = document.getElementById('framePre');
+  const rect = frame.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vertSrc = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const fragSrc = `
+precision highp float;
+varying vec2 vUv;
+
+uniform float uTime;
+uniform vec2 uResolution;
+uniform float uEnergy;      // 0 idle .. 1 thinking
+uniform float uSettle;      // 0..1 success settle
+uniform float uArrival;     // 0..1 one-shot "waking up" boost
+uniform vec2 uObjPos;       // anchor position (badge/header docking target) in aspect-corrected space
+uniform float uObjScale;    // overall light radius scale (1.0 = full presence, ~0.16 = header badge)
+uniform vec2 uLightOffset;  // current search offset from uObjPos, in the same space (0 at idle/settle)
+uniform float uBeam;        // 0..1 success beam amount — soft light column extending downward
+
+const vec3 BG        = vec3(0.098, 0.098, 0.098); // #191919 Numa Black
+const vec3 BG_LIFT    = vec3(0.145, 0.14, 0.145);  // very slightly lifted, for the soft glow falloff
+const vec3 PINK       = vec3(1.0, 0.615, 0.679);   // #FF9DAD — Numa Pink (#FFC9D2), same hue/value, saturation boosted ~82% total
+const vec3 WHITE      = vec3(1.0, 1.0, 1.0);
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+// --- background: Numa Black space with one soft ambient field that
+// follows the light's CURRENT position (anchor + search offset), so the
+// room visibly reacts as the light searches — not just a static glow
+// anchored to where the light rests.
+vec3 background(vec2 p, vec2 lightPos, float energy, float arrival) {
+  vec3 col = BG;
+  float d = length(p - lightPos);
+  float ambient = exp(-d * d * 2.2);
+  float glowLevel = mix(0.6, 1.0, energy) + arrival * 0.5;
+  col = mix(col, mix(BG_LIFT, PINK, 0.22), ambient * 0.6 * glowLevel);
+
+  // extremely subtle grain so the flat black never looks like a plastic
+  // digital void — reads as a material space, not a UI background
+  float grain = (hash(p * uResolution.xy * 0.02 + uTime * 0.01) - 0.5) * 0.012;
+  col += grain;
+
+  return col;
+}
+
+// =============================================================================
+// LUMI SPOTLIGHT — a point of light, not an object. Rendered directly in
+// screen space (no raymarched geometry): a clearly defined luminous core
+// with a soft, narrow falloff — like a small light emitting through a
+// diffuser, or a flashlight beam seen face-on. Deliberately NOT a flat
+// tinted circle: the core is near-white/hot at its centre and cools into
+// Numa Pink toward its edge, with a very subtle soft rim, so it reads as
+// light being emitted rather than a painted disc.
+// =============================================================================
+void renderLight(vec2 p, float t, float energy, float settle, float arrival, float beam,
+                  vec2 lightPos, float scale, vec3 bgCol,
+                  out vec3 colOut, out float maskOut) {
+  vec2 lp = (p - lightPos) / max(scale, 0.001);
+  float d = length(lp);
+
+  // idle/thinking: the core itself breathes very slightly — a tiny, slow
+  // pulse in radius/intensity, not a mechanical blink. Success settle
+  // holds it steady and slightly brighter instead.
+  float pulse = sin(t * 0.6) * 0.5 + sin(t * 0.41 + 1.7) * 0.5;
+  pulse = mix(pulse * 0.04, 0.0, settle); // pulse fades out as it settles
+
+  // core: a small, clearly defined near-white disc — this is the "clearly
+  // defined circular light source" the edge falloff builds outward from
+  float coreR = 0.34 + pulse;
+  float core = 1.0 - smoothstep(coreR * 0.55, coreR, d);
+
+  // very subtle soft edge around the core (a thin transition band, not a
+  // wide gradient) so the disc reads as a defined source, not a blur spot
+  float edge = 1.0 - smoothstep(coreR, coreR * 1.35, d);
+
+  // wider emitted glow — this is what makes it read as LIGHT rather than a
+  // flat circle: intensity falls off smoothly well past the core, cooling
+  // from near-white to Numa Pink as it spreads
+  float emitLevel = mix(0.55, 1.0, energy) + arrival * 0.4 + beam * 0.15;
+  float emit = exp(-d * d * 1.5) * emitLevel;
+
+  vec3 hot = mix(WHITE, PINK, 0.35);
+  vec3 col = mix(bgCol, PINK, emit * 0.5);
+  col = mix(col, hot, edge * 0.55);
+  col = mix(col, WHITE, core * 0.8);
+
+  // success beam: a soft, diffuse column of light extending downward from
+  // the source toward the response below — visually connecting Lumi to
+  // the answer, not a hard sci-fi laser line. Widens slightly with
+  // distance, like real emitted light spreading, and fades out well down
+  // the frame. Its WIDTH scales with the light's own current size (so a
+  // small docked badge casts a proportionally narrow beam, not a wide
+  // shaft), but its REACH is in fixed frame-space — the beam's job is to
+  // visually reach the response text below in the chat, regardless of how
+  // small the light itself has become while docked.
+  vec2 toP = p - lightPos;
+  float below = max(toP.y * -1.0, 0.0); // distance downward from the light (screen: +y is up)
+  float beamWidth = scale * 0.28 + below * 0.1;
+  float beamFalloff = exp(-(toP.x * toP.x) / max(beamWidth * beamWidth, 0.0001));
+  float beamReach = smoothstep(0.0, scale * 0.4, below) * smoothstep(0.95, 0.1, below);
+  float beamAmt = beamFalloff * beamReach * beam * 0.4;
+  col = mix(col, mix(PINK, WHITE, 0.3), beamAmt);
+
+  float mask = clamp(emit + core + edge + beamAmt, 0.0, 1.0);
+  colOut = col;
+  maskOut = mask;
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+  vec2 p = (uv - 0.5) * aspect;
+
+  float t = uTime;
+  vec2 lightPos = uObjPos + uLightOffset;
+
+  vec3 bg = background(p, lightPos, uEnergy, uArrival);
+  vec3 col = bg;
+
+  vec3 lightCol; float lightMask;
+  renderLight(p, t, uEnergy, uSettle, uArrival, uBeam, lightPos, uObjScale, bg, lightCol, lightMask);
+  col = mix(col, lightCol, lightMask);
+
+  // gentle vignette, editorial rather than a poster
+  float vig = smoothstep(1.15, 0.35, length(p * vec2(0.8, 1.0)));
+  col = mix(col * 0.92, col, vig);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+function compileShader(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+  }
+  return s;
+}
+
+let program, uniforms = {};
+
+if (gl) {
+  program = gl.createProgram();
+  gl.attachShader(program, compileShader(vertSrc, gl.VERTEX_SHADER));
+  gl.attachShader(program, compileShader(fragSrc, gl.FRAGMENT_SHADER));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(program));
+  }
+  gl.useProgram(program);
+
+  const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(program, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  uniforms.uTime = gl.getUniformLocation(program, 'uTime');
+  uniforms.uResolution = gl.getUniformLocation(program, 'uResolution');
+  uniforms.uEnergy = gl.getUniformLocation(program, 'uEnergy');
+  uniforms.uSettle = gl.getUniformLocation(program, 'uSettle');
+  uniforms.uArrival = gl.getUniformLocation(program, 'uArrival');
+  uniforms.uObjPos = gl.getUniformLocation(program, 'uObjPos');
+  uniforms.uObjScale = gl.getUniformLocation(program, 'uObjScale');
+  uniforms.uLightOffset = gl.getUniformLocation(program, 'uLightOffset');
+  uniforms.uBeam = gl.getUniformLocation(program, 'uBeam');
+}
+
+// ---- state ----
+const params = new URLSearchParams(location.search);
+let uiState = params.get('state') || 'idle';
+
+let energyTarget = 0.0, energyCurrent = 0.0;
+let settleTarget = 0.0, settleCurrent = 0.0;
+let arrivalTarget = 1.0, arrivalCurrent = 0.0; // presence "breathes to life" on load
+let beamTarget = 0.0, beamCurrent = 0.0; // success — soft light column toward the response
+
+function applyState(state) {
+  uiState = state;
+  if (state === 'idle') { energyTarget = 0.0; settleTarget = 0.0; beamTarget = 0.0; }
+  if (state === 'thinking') { energyTarget = 1.0; settleTarget = 0.0; beamTarget = 0.0; }
+  if (state === 'success') { energyTarget = 0.15; settleTarget = 1.0; beamTarget = 1.0; }
+}
+
+// ---- object position/scale: the SAME object travels from "environment"
+// (centered, large) to "assistant" (small, top-left of the chat header) as
+// the conversation state is introduced. Driven by a single 0..1 progress
+// value eased over the transition, not an instant swap. ----
+const frameEl = document.getElementById('framePre');
+let travelTarget = 0.0, travelCurrent = 0.0; // 0 = centered/large, 1 = docked/small
+
+// Frame aspect is 385/860 ≈ 0.448, so in the shader's aspect-corrected
+// space (uv - 0.5) * vec2(aspect, 1.0), the visible frame spans roughly
+// x: [-0.224, 0.224], y: [-0.5, 0.5] — and because WebGL UV origin is
+// bottom-left, POSITIVE y is the TOP of the frame, negative y the bottom.
+// Docked target (x≈-0.18, y≈+0.45) lands the object under the "Lumi"
+// topbar label as its badge.
+function objPosForTravel(tr) {
+  // tr=0 is the centred "environment" presence — mathematically (0, 0)
+  // in this aspect-corrected space, i.e. the exact centre of the
+  // viewport both horizontally and vertically. tr=1 (the header badge
+  // target) is unchanged from before: (-0.155, 0.43).
+  const x = 0 + tr * -0.155;
+  const y = 0 + tr * 0.43;
+  return [x, y];
+}
+function scaleForTravel(tr) {
+  return 0.19 - tr * 0.13; // 0.19 contained presence -> 0.06 header badge
+}
+
+// ---- entrance: rebuilt from scratch as 4 simple, DIRECT trajectories,
+// each travelled in a straight line and independently eased — not a
+// spline, not an oscillation, not a wandering path. Earlier versions
+// prioritised an unbroken velocity curve through curved/spiralling
+// waypoints, which read as wobbly and directionless ("drunk"). This
+// version inverts that priority: directional clarity first. Lumi always
+// knows exactly where it's going — it travels straight at each
+// destination, slows down to arrive, then sets off straight at the next
+// one. The only deliberately "alive" gesture is one small, controlled
+// bounce held at the centre, and even that stays on a single axis with
+// no net drift — never an orbit, spiral, or sideways wander.
+//
+// Choreography (4 legs, each a straight line, own duration/easing):
+//   1. below the frame        -> centre        (clear vertical rise)
+//   2. centre                 -> off past the left edge   (confident leftward exit)
+//   3. off past the left edge -> upper-left, off-screen   (straight rise, still off-screen)
+//   4. upper-left             -> final header position, at header height  (straight
+//      horizontal release, decelerating smoothly into place by its own end —
+//      no extra diagonal leg tacked on afterward)
+// The centre "bounce" is NOT its own leg — it's a small, single, damped
+// up/down pulse layered on top of the brief pause between legs 1 and 2
+// (see CENTRE_HOLD below), so it never fights the confirmed direction of
+// either leg. Leg 4 replaces what used to be a single diagonal glide from
+// the upper-left straight to the header — that diagonal read as
+// "wandering in from a corner"; sweeping horizontally at the header's own
+// height, all the way into the final position, keeps every leg's
+// direction unambiguous (either purely vertical or purely horizontal) and
+// avoids a second diagonal correction right at the very end.
+const LEG_RISE_DUR = 1.1;      // below-frame -> centre
+const CENTRE_HOLD = 0.55;      // brief, controlled bounce at centre — not a separate long dwell
+const LEG_EXIT_DUR = 1.15;     // centre -> off past the left edge
+const LEG_OFFSCREEN_DUR = 0.45; // off past the left edge -> upper-left, still off-screen (vertical)
+const LEG_ACROSS_DUR = 1.3;    // upper-left -> final header position (horizontal, ends settled)
+const ENTRANCE_DUR = LEG_RISE_DUR + CENTRE_HOLD + LEG_EXIT_DUR + LEG_OFFSCREEN_DUR + LEG_ACROSS_DUR;
+
+let entranceStart = null; // null = not currently playing
+// True only once the entrance has actually played and finished (or been
+// explicitly bypassed for dev/screenshot use) — distinguishes "entrance
+// hasn't started yet" (light must stay fully off-screen below, not the
+// centred idle position) from "entrance already finished" (safe to fall
+// back to the ordinary travelCurrent-driven position). Without this,
+// entranceOffset() returning null looked identical in both cases, so the
+// centred idle position rendered continuously from page load — including
+// underneath the still-dissolving Home photo — which is exactly what
+// produced the brief flash of Lumi centred before it "jumped" off-screen
+// to begin its below-frame entrance.
+let entranceHasPlayed = false;
+
+// Standard, well-behaved ease-in-out — smooth acceleration then smooth
+// deceleration along ONE straight path. No overshoot, no bounce baked
+// into the curve itself; any "alive" feeling comes from the deliberate,
+// separate centre-hold gesture below, not from the travel easing.
+function easeInOutCubic(x) {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+function lerp(a, b, s) { return a + (b - a) * s; }
+
+// The resting, off-screen-below position/scale used both as the entrance
+// curve's own starting point AND as the render state before the entrance
+// has ever played — so there is nothing else for the canvas to draw in
+// that window besides "fully below the frame", matching the entrance's
+// own first frame exactly (no jump when the entrance actually begins).
+function belowFrameRest() {
+  const [centreX, centreY] = objPosForTravel(0);
+  return [centreX, centreY - 0.62, scaleForTravel(0)];
+}
+
+function entranceOffset(t) {
+  if (entranceStart === null) {
+    // Not currently playing: before it has ever played this chat session,
+    // stay fully off-screen below (never the centred idle position) —
+    // once it HAS played, hand off cleanly to the ordinary travel system.
+    return entranceHasPlayed ? null : belowFrameRest();
+  }
+  const et = t - entranceStart;
+  if (et >= ENTRANCE_DUR) { entranceStart = null; entranceHasPlayed = true; return null; }
+
+  const [centreX, centreY] = objPosForTravel(0);
+  const [endX, endY] = objPosForTravel(1);
+  const startScale = scaleForTravel(0);
+  const endScale = scaleForTravel(1);
+
+  const belowY = centreY - 0.62;               // straight below the frame
+  const exitX = -0.30, exitY = centreY;        // just past the left edge, exact centre height — the
+                                                // leftward leg carries NO vertical component, so the
+                                                // centre-hold's bounce (which always ends back at
+                                                // centreY, see below) can hand off with zero seam
+  const aboveX = -0.30;                        // upper-left, fully off-screen (x only — the hidden
+                                                // rise climbs straight up to acrossY, the same height
+                                                // leg 4's horizontal sweep then travels at all the way
+                                                // into the final position)
+  const acrossY = endY;                        // EXACTLY the header's own height — leg 4 travels
+                                                // straight across at this one height, never
+                                                // diagonally, ending already at the right height so
+                                                // it settles horizontally, not by cutting in at an angle
+
+  // ---- Leg 1: below the frame -> centre. Purely vertical — x never
+  // moves here, so there is no sideways drift to read as wandering.
+  let cursor = LEG_RISE_DUR;
+  if (et < cursor) {
+    const s = easeInOutCubic(et / LEG_RISE_DUR);
+    return [centreX, lerp(belowY, centreY, s), startScale];
+  }
+
+  // ---- Centre hold: a brief, controlled moment at the exact centre.
+  // One single damped vertical bounce — NOT a repeating oscillation, NOT
+  // sideways, NOT an orbit — a small dip down and a slightly smaller
+  // settle back up, like a light coming to rest on a cushion of air. Net
+  // horizontal position never moves, so it can't read as searching.
+  //
+  // The dip itself (first ~70% of the hold) is untouched from before.
+  // What changed: a smoothstep envelope closes the LAST 30% of the hold
+  // down to an exact, motionless (0 value, 0 slope) end — previously the
+  // damped sine only ever approached zero asymptotically, so it was still
+  // slightly off-centre and still moving the instant leg 2 began, which
+  // is what produced the visible "click" (a position snap + a velocity
+  // discontinuity, stacked). Leg 2 now starts from that same exact point
+  // with the same zero velocity, so the release into it reads as one
+  // continuous gesture rather than two stitched clips.
+  if (et < cursor + CENTRE_HOLD) {
+    const s = (et - cursor) / CENTRE_HOLD; // 0..1 across the hold
+    let bounce = Math.sin(s * Math.PI * 1.5) * Math.exp(-s * 2.2);
+    const closeStart = 0.7;
+    if (s > closeStart) {
+      const f = (s - closeStart) / (1 - closeStart);
+      const fade = 1 - f * f * (3 - 2 * f); // smoothstep -> 0, zero slope at both ends
+      bounce *= fade;
+    }
+    return [centreX, centreY - bounce * 0.028, startScale * (1 - Math.abs(bounce) * 0.05)];
+  }
+  cursor += CENTRE_HOLD;
+
+  // ---- Leg 2: centre -> off past the left edge. Purely horizontal —
+  // starts exactly at (centreX, centreY) with zero velocity, the same
+  // state the centre hold now guarantees it ends at, so there is no seam
+  // to feel. A single straight, confident leftward release.
+  if (et < cursor + LEG_EXIT_DUR) {
+    const s = easeInOutCubic((et - cursor) / LEG_EXIT_DUR);
+    return [lerp(centreX, exitX, s), centreY, lerp(startScale, startScale * 0.8, s)];
+  }
+  cursor += LEG_EXIT_DUR;
+
+  // ---- Leg 3: off past the left edge -> upper-left, still fully
+  // off-screen, ending at EXACTLY the height leg 4 sweeps across at
+  // (acrossY) — so the rise hands off to the horizontal sweep with no
+  // vertical snap. Purely vertical itself — a clean rise while hidden,
+  // no sideways drift, so it doesn't read as a diagonal cut-through.
+  if (et < cursor + LEG_OFFSCREEN_DUR) {
+    const s = easeInOutCubic((et - cursor) / LEG_OFFSCREEN_DUR);
+    return [exitX, lerp(exitY, acrossY, s), lerp(startScale * 0.8, endScale * 1.3, s)];
+  }
+  cursor += LEG_OFFSCREEN_DUR;
+
+  // ---- Leg 4: upper-left -> final header position. Re-enters off-screen
+  // on the left, at the header's own height, and travels straight
+  // rightward — one single horizontal release straight into place, no
+  // extra diagonal leg tacked on afterward. It decelerates smoothly into
+  // the final position by the end of this same leg.
+  const s = easeInOutCubic((et - cursor) / LEG_ACROSS_DUR);
+  return [lerp(aboveX, endX, s), acrossY, lerp(endScale * 1.3, endScale, s)];
+}
+
+// ---- search motion: while thinking, the light wanders organically within
+// a small bounded area around its anchor — like a flashlight searching
+// across a wall, never a mechanical circle or ping-pong. Built from a few
+// slow, non-integer-related sine rates (same "no perceptible loop" trick
+// used elsewhere in these explorations) so it drifts from point to point
+// rather than tracing a repeating path. At idle it barely moves at all
+// (a tiny natural wander); at success it eases back to dead-still (0,0)
+// as the beam settles in.
+function searchOffset(t, energy, settle, scale) {
+  const wanderX =
+    Math.sin(t * 0.55) * 0.5 +
+    Math.sin(t * 0.23 + 1.4) * 0.3 +
+    Math.sin(t * 0.91 + 3.1) * 0.2;
+  const wanderY =
+    Math.sin(t * 0.41 + 0.6) * 0.5 +
+    Math.sin(t * 0.77 + 2.2) * 0.3 +
+    Math.sin(t * 0.19 + 4.0) * 0.2;
+  // radii are proportional to the light's own current size (scale), so the
+  // search stays a "small area" relative to the light whether it's the
+  // large centered presence or the tiny docked header badge
+  const searchRadius = scale * 0.55; // bounded search area — a small corner-to-corner wander, not a wide roam
+  const idleRadius = scale * 0.05;   // idle: a barely-perceptible natural drift, not "searching"
+  const radius = idleRadius + (searchRadius - idleRadius) * energy;
+  const settleDamp = 1.0 - settle; // success: the search stops and holds still
+  return [wanderX * radius * settleDamp, wanderY * radius * settleDamp];
+}
+
+const start = performance.now();
+function frame() {
+  const now = (performance.now() - start) / 1000;
+
+  energyCurrent += (energyTarget - energyCurrent) * 0.03;
+  settleCurrent += (settleTarget - settleCurrent) * 0.02;
+  arrivalCurrent += (arrivalTarget - arrivalCurrent) * 0.015;
+  travelCurrent += (travelTarget - travelCurrent) * 0.055;
+  beamCurrent += (beamTarget - beamCurrent) * 0.025;
+
+  if (gl && program) {
+    // While the entrance is playing it is the sole source of position/
+    // scale — a single continuous path from below-frame to the header —
+    // rather than an offset layered on the ordinary travel system, which
+    // is exactly the kind of two-systems handoff that used to read as a
+    // visible seam. Once it finishes (returns null) travelCurrent simply
+    // continues on seamlessly from the identical endpoint.
+    const entrance = entranceOffset(now);
+    const [ox, oy, scale] = entrance
+      ? entrance
+      : [...objPosForTravel(travelCurrent), scaleForTravel(travelCurrent)];
+    const [lox, loy] = searchOffset(now, energyCurrent, settleCurrent, scale);
+    gl.useProgram(program);
+    gl.uniform1f(uniforms.uTime, now);
+    gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
+    gl.uniform1f(uniforms.uEnergy, energyCurrent);
+    gl.uniform1f(uniforms.uSettle, settleCurrent);
+    gl.uniform1f(uniforms.uArrival, arrivalCurrent);
+    gl.uniform2f(uniforms.uObjPos, ox, oy);
+    gl.uniform1f(uniforms.uObjScale, scale);
+    gl.uniform2f(uniforms.uLightOffset, lox, loy);
+    gl.uniform1f(uniforms.uBeam, beamCurrent);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- screen/stage navigation ----
+const chatLayerEl = document.getElementById('chatLayerPre');
+let welcomeTimers = [];
+
+function resetWelcomeReveal() {
+  welcomeTimers.forEach(clearTimeout);
+  welcomeTimers = [];
+  document.getElementById('greetingLine1Pre').classList.remove('visible');
+  document.getElementById('greetingLine2Pre').classList.remove('visible');
+  document.getElementById('greetingLineBarcelonaPre').classList.remove('visible');
+  document.getElementById('prebookingActionsPre').classList.remove('visible');
+  document.getElementById('barcelonaActionsPre').classList.remove('visible');
+}
+
+// Pre-booking greeting arrives in two beats — "Good evening, Sarah." then
+// "How can I help?" shortly after — before the quick actions, the same
+// calm, minimal timing this experience already uses elsewhere. Barcelona
+// booked is untouched: a single line, same timing as before.
+function playWelcomeReveal() {
+  resetWelcomeReveal();
+  if (frameEl.dataset.mode === 'barcelona') {
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLineBarcelonaPre').classList.add('visible'), 120));
+    welcomeTimers.push(setTimeout(() => document.getElementById('barcelonaActionsPre').classList.add('visible'), 520));
+  } else {
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLine1Pre').classList.add('visible'), 150));
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLine2Pre').classList.add('visible'), 750));
+    welcomeTimers.push(setTimeout(() => document.getElementById('prebookingActionsPre').classList.add('visible'), 1150));
+  }
+}
+
+// Home -> Lumi: the same darken -> blur-peak -> hold -> resolve timeline as
+// every other Lumi exploration (photo dissolves through a soft blur field),
+// but underneath it the presence object is already there, large and
+// centered on its own canvas. Once the photo has fully dissolved, the
+// object travels up into the chat header as the welcome content fades in —
+// environment -> assistant -> conversation as one continuous relocation,
+// not a swap between a hero graphic and an unrelated chat icon.
+let transitionTimers = [];
+function clearTransitionTimers() { transitionTimers.forEach(clearTimeout); transitionTimers = []; }
+
+function goToChat() {
+  if (frameEl.dataset.stage === 'chat') return;
+  clearTransitionTimers();
+  travelTarget = 0.0; // object is large/centered, revealed as the photo dissolves
+
+  frameEl.dataset.transition = 'darken';
+  transitionTimers.push(setTimeout(() => { frameEl.dataset.transition = 'blur-peak'; }, 300));
+  transitionTimers.push(setTimeout(() => {
+    frameEl.dataset.transition = 'hold';
+    frameEl.dataset.stage = 'chat';
+    chatLayerEl.dataset.view = 'welcome';
+    resetWelcomeReveal();
+  }, 800));
+  transitionTimers.push(setTimeout(() => { frameEl.dataset.transition = ''; }, 1000));
+  transitionTimers.push(setTimeout(() => {
+    delete frameEl.dataset.transition;
+    // the dark environment is now fully resolved — Lumi is not visible
+    // yet at this instant (the entrance path itself starts below the
+    // frame); this is where its one continuous below-frame -> centre ->
+    // header journey begins. Same time base as `now` inside frame()
+    // (performance.now() relative to `start`).
+    entranceStart = (performance.now() - start) / 1000;
+  }, 1400));
+  // Fires exactly when the entrance path reaches its own end — travelCurrent
+  // is set directly (not just travelTarget) to the identical value the
+  // entrance's last frame already rendered, so the handoff to the ordinary
+  // travel/idle system is mathematically exact and produces no jump.
+  transitionTimers.push(setTimeout(() => {
+    travelCurrent = 1.0;
+    travelTarget = 1.0;
+    playWelcomeReveal();
+  }, 1400 + ENTRANCE_DUR * 1000));
+}
+
+function goToEntry() {
+  clearTransitionTimers();
+  delete frameEl.dataset.transition;
+  frameEl.dataset.stage = 'entry';
+  chatLayerEl.dataset.view = 'welcome';
+  entranceStart = null; // cancel a still-playing entrance so a fresh Ask Lumi always starts it cleanly from below-frame
+  entranceHasPlayed = false; // next Ask Lumi should play the full entrance again, not skip straight to the idle travel position
+  travelTarget = 0.0;
+  travelCurrent = 0.0;
+  resetWelcomeReveal();
+  clearAskTimers();
+  document.getElementById('askAnythingBtnPre').classList.remove('active-input');
+  askInput.value = '';
+  [guestMsgEl, typingEl, lumiResponseMsgEl, actionMsgEl, confirmMsgEl].forEach(el => el.classList.remove('visible'));
+  clearStayTimers();
+  resetStayChatBody();
+  applyState('idle');
+  setUiStateButtons('idle');
+}
+
+// ---- simulated "Ask anything" conversation (same beats as the other
+// Lumi explorations: type -> send -> think -> respond -> action -> confirm) ----
+const askInput = document.getElementById('askAnythingInputPre');
+const guestMsgEl = document.getElementById('guestMsgPre');
+const typingEl = document.getElementById('typingIndicatorPre');
+const lumiResponseMsgEl = document.getElementById('lumiResponseMsgPre');
+const actionMsgEl = document.getElementById('actionMsgPre');
+const confirmMsgEl = document.getElementById('confirmMsgPre');
+const GUEST_QUESTION = "The AC in my room isn't working.";
+let askTimers = [];
+
+function clearAskTimers() { askTimers.forEach(clearTimeout); askTimers = []; }
+
+function revealMsg(el) {
+  el.classList.remove('visible');
+  void el.offsetWidth;
+  el.classList.add('visible');
+}
+
+function setUiStateButtons(state) {
+  document.querySelectorAll('#stateSwitcherPre button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`#stateSwitcherPre [data-state="${state}"]`).classList.add('active');
+}
+
+function setUiState(state) {
+  applyState(state);
+  setUiStateButtons(state);
+}
+
+function startSimulatedConversation() {
+  if (chatLayerEl.dataset.view === 'conversation') return;
+  clearAskTimers();
+  [guestMsgEl, typingEl, lumiResponseMsgEl, actionMsgEl, confirmMsgEl].forEach(el => el.classList.remove('visible'));
+  askInput.value = '';
+  chatLayerEl.dataset.view = 'conversation';
+  document.getElementById('askAnythingBtnPre').classList.add('active-input');
+
+  let charIndex = 0;
+  const typeStepMs = 40;
+  askTimers.push(setTimeout(function typeNext() {
+    charIndex++;
+    askInput.value = GUEST_QUESTION.slice(0, charIndex);
+    if (charIndex < GUEST_QUESTION.length) {
+      askTimers.push(setTimeout(typeNext, typeStepMs));
+    } else {
+      askTimers.push(setTimeout(sendGuestMessage, 200));
+    }
+  }, 250));
+
+  function sendGuestMessage() {
+    document.getElementById('askAnythingBtnPre').classList.remove('active-input');
+    askInput.value = '';
+    revealMsg(guestMsgEl);
+
+    askTimers.push(setTimeout(() => {
+      setUiState('thinking');
+      revealMsg(typingEl);
+    }, 150));
+
+    askTimers.push(setTimeout(() => {
+      typingEl.classList.remove('visible');
+      setUiState('idle');
+      revealMsg(lumiResponseMsgEl);
+    }, 3400));
+
+    askTimers.push(setTimeout(() => revealMsg(actionMsgEl), 4050));
+
+    askTimers.push(setTimeout(() => {
+      setUiState('success');
+      revealMsg(confirmMsgEl);
+    }, 4650));
+  }
+}
+
+// ---- "Where should I stay?" scripted scenario (Pre-booking only) ----
+// Lumi asks first this time, rather than waiting on a typed question, but
+// the GUEST's reply uses the exact same typed-into-the-input-bar pattern
+// as "Ask anything": type character by character, send, bubble rises,
+// thinking, then success — held long enough to actually see the
+// Spotlight's searching-light -> settle -> beam sequence resolve, before
+// the curated Barcelona picks arrive as Lumi messages in this same
+// scrolling thread. Its own timer array so it never touches the "Ask
+// anything" AC-repair demo above.
+//
+// Every message here — including each recommendation card — is created
+// and appended to #stayChatBodyPre only at the moment it's revealed, never
+// pre-rendered ahead of time. This is what makes the thread behave like a
+// real native chat: nothing's height is reserved in advance, so the very
+// first message opens right at the bottom next to the input, and the
+// thread only grows/scrolls as content that actually exists accumulates.
+const stayChatScrollEl = document.getElementById('stayChatScrollPre');
+const STAY_GUEST_REPLY = "I'm thinking of going to Barcelona.";
+
+const STAY_PROPERTIES = [
+  {
+    id: 'roca', name: 'Numa Roca', hood: 'Eixample',
+    why: "Numa's first Barcelona home, right in the grid of Eixample — if you want a stay that feels more like living in the city than visiting it, this is a good fit.",
+  },
+  {
+    id: 'seda', name: 'Numa Seda', hood: 'El Born',
+    why: "Tucked into El Born's narrow lanes, with original vaulted ceilings inside — good if you want to fall asleep and wake up surrounded by the Gothic side of the city.",
+  },
+  {
+    id: 'brio', name: 'Numa Brio', hood: 'Gràcia',
+    why: 'Gràcia is the neighbourhood locals never want to leave — cafés, small squares, independent shops. Good if you want everyday Barcelona life on your doorstep.',
+  },
+  {
+    id: 'colmena', name: 'Numa Colmena', hood: 'Sarrià–Sant Gervasi',
+    why: "A quieter, leafier side of Barcelona up near the hills. Good if you'd rather come back to somewhere calm after a day in the busier parts of the city.",
+  },
+  {
+    id: 'lustre', name: 'Numa Lustre', hood: 'El Born',
+    why: 'Another option right in El Born, a short walk from Seda — good if you want to be close to the galleries, bars and energy of the area rather than just passing through it.',
+  },
+];
+
+// Clears the thread back to just the spacer (the flexible filler that
+// pushes short content down against the input, then shrinks away once
+// real content fills/exceeds the viewport) — never a fully empty
+// container, so the next scenario run starts from the same bottom-
+// anchored state as the very first run.
+function resetStayChatBody() {
+  if (stayScrollRaf) { cancelAnimationFrame(stayScrollRaf); stayScrollRaf = null; }
+  stayChatScrollEl.innerHTML = '<div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div>';
+}
+
+function buildStayTextMsg(kind, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${kind}`;
+  el.textContent = text;
+  return el;
+}
+
+function buildStayTypingEl() {
+  const el = document.createElement('div');
+  el.className = 'typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  return el;
+}
+
+function buildStayRecMsg(property) {
+  const shortName = property.name.replace('Numa ', '');
+  const el = document.createElement('div');
+  el.className = 'msg lumi stay-rec-msg';
+  el.dataset.property = property.id;
+  el.innerHTML = `
+    <div class="stay-rec-name">${property.name} <span class="stay-rec-hood">${property.hood}</span></div>
+    <p class="stay-rec-why">${property.why}</p>
+    <div class="stay-rec-gallery">
+      <img src="${property.id}.avif" alt="${property.name}" />
+    </div>
+    <button class="stay-rec-explore" data-property="${property.id}">Explore ${shortName}<span class="material-symbols-outlined">arrow_forward</span></button>
+  `;
+  el.querySelector('.stay-rec-explore').addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Placeholder action for this prototype — no real property pages
+    // exist in this exploration yet, so this simply logs the intent.
+    console.log('Explore property:', property.id);
+  });
+  return el;
+}
+
+// Eases scrollTop from its current value to `target` over `duration`
+// seconds — a real animated scroll, never an instant snap. Re-entrant
+// safe: starting a new scroll cancels whatever scroll animation was
+// still running, so back-to-back messages compose into one continuous
+// upward flow instead of fighting each other.
+let stayScrollRaf = null;
+function animateStayScrollTo(target, duration) {
+  if (stayScrollRaf) cancelAnimationFrame(stayScrollRaf);
+  const from = stayChatScrollEl.scrollTop;
+  const delta = target - from;
+  if (Math.abs(delta) < 0.5) return;
+  const startTime = performance.now();
+  const ease = (x) => 1 - Math.pow(1 - x, 3); // easeOutCubic — quick to start, gentle to settle
+  function step(now) {
+    const s = Math.min((now - startTime) / (duration * 1000), 1);
+    stayChatScrollEl.scrollTop = from + delta * ease(s);
+    if (s < 1) {
+      stayScrollRaf = requestAnimationFrame(step);
+    } else {
+      stayScrollRaf = null;
+    }
+  }
+  stayScrollRaf = requestAnimationFrame(step);
+}
+
+// Appends a message, then fades it in WHILE the conversation scrolls up
+// to meet it — one continuous gesture, not "appear, then jump". The
+// scroll target is anchored to the NEW message's own top (plus a small
+// margin) rather than the container's bottom: for a tall message (a
+// recommendation card) this means the viewport settles on its beginning
+// — name, why-it-fits, the start of its photo — with the rest reachable
+// by scrolling, rather than snapping all the way down to its far edge.
+// For a short message the two targets are nearly identical, so the same
+// single rule reads naturally for both.
+function appendStayMsg(el) {
+  stayChatScrollEl.appendChild(el);
+  requestAnimationFrame(() => {
+    el.classList.add('stay-visible');
+
+    const topMargin = 14; // a little breathing room above the new message, not flush to the edge
+    const anchorToTop = el.offsetTop - topMargin;
+    const maxScroll = stayChatScrollEl.scrollHeight - stayChatScrollEl.clientHeight;
+    const target = Math.max(0, Math.min(anchorToTop, maxScroll));
+    animateStayScrollTo(target, 0.85); // matches the message's own fade-in duration
+  });
+  return el;
+}
+
+let stayTimers = [];
+function clearStayTimers() { stayTimers.forEach(clearTimeout); stayTimers = []; }
+
+function startStayScenario() {
+  goToChat(); // ensure we're past the Home dissolve if this was tapped quickly
+  clearStayTimers();
+  clearAskTimers();
+  resetStayChatBody(); // clear any previous run — a fresh thread each time
+  askInput.value = '';
+  document.getElementById('askAnythingBtnPre').classList.remove('active-input');
+
+  chatLayerEl.dataset.view = 'stay-convo';
+
+  // 1) Lumi opens the conversation — the very first message, so it lands
+  // right at the bottom of the (currently empty) thread, next to the input
+  stayTimers.push(setTimeout(() => {
+    appendStayMsg(buildStayTextMsg('lumi', 'Where are you thinking of going?'));
+  }, 200));
+
+  // 2) the guest's reply is TYPED into the input bar, same mechanic and
+  // pace as "Ask anything" (a short pause, then ~40ms/character), rather
+  // than just appearing as a bubble
+  stayTimers.push(setTimeout(() => {
+    document.getElementById('askAnythingBtnPre').classList.add('active-input');
+    let charIndex = 0;
+    const typeStepMs = 40;
+    stayTimers.push(setTimeout(function typeNext() {
+      charIndex++;
+      askInput.value = STAY_GUEST_REPLY.slice(0, charIndex);
+      if (charIndex < STAY_GUEST_REPLY.length) {
+        stayTimers.push(setTimeout(typeNext, typeStepMs));
+      } else {
+        stayTimers.push(setTimeout(sendStayReply, 250));
+      }
+    }, 250));
+  }, 900));
+
+  function sendStayReply() {
+    // 3) send — input clears, the guest's message bubble rises
+    document.getElementById('askAnythingBtnPre').classList.remove('active-input');
+    askInput.value = '';
+    appendStayMsg(buildStayTextMsg('guest', STAY_GUEST_REPLY));
+
+    // 4) thinking begins — held clearly longer than the AC-repair demo so
+    // the Spotlight's searching motion is unmistakably visible
+    let typingEl;
+    stayTimers.push(setTimeout(() => {
+      setUiState('thinking');
+      typingEl = appendStayMsg(buildStayTypingEl());
+    }, 250));
+
+    // 5) thinking ends — the typing bubble transitions into the final
+    // response state right as success fires, so the light points its
+    // beam downward toward the response area at the exact moment the
+    // response is about to start appearing, not several seconds earlier.
+    stayTimers.push(setTimeout(() => {
+      typingEl.remove();
+      setUiState('success');
+
+      // 6) a very short, deliberate beat (~200ms) so the eye registers
+      // "light points down" before "answer appears" — immediate and
+      // fluid, not a loading pause. Only then does the response reveal.
+      stayTimers.push(setTimeout(() => {
+        appendStayMsg(buildStayTextMsg('lumi', 'Nice. Here are a few places you could stay.'));
+      }, 200));
+    }, 5000));
+
+    // 7) the curated picks arrive one at a time, right here in the thread —
+    // continuing the same conversation, not a screen change. Same 700ms
+    // gap after the offer message as before, just shifted to match the
+    // offer's new (earlier) landing time.
+    STAY_PROPERTIES.forEach((property, i) => {
+      stayTimers.push(setTimeout(() => {
+        appendStayMsg(buildStayRecMsg(property));
+      }, 5900 + i * 550));
+    });
+  }
+}
+
+document.getElementById('whereStayBtnPre').addEventListener('click', startStayScenario);
+
+document.getElementById('askLumiBtnPre').addEventListener('click', goToChat);
+document.getElementById('closeBtnPre').addEventListener('click', goToEntry);
+document.getElementById('askAnythingBtnPre').addEventListener('click', startSimulatedConversation);
+
+document.getElementById('stateSwitcherPre').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  applyState(btn.dataset.state);
+  setUiStateButtons(btn.dataset.state);
+});
+
+// initialize from query params (dev/screenshot use)
+setUiStateButtons(uiState);
+applyState(uiState);
+if (params.has('instant')) {
+  energyCurrent = energyTarget; settleCurrent = settleTarget; arrivalCurrent = 1.0;
+}
+if (params.get('stage') === 'chat' || params.has('state')) {
+  frameEl.dataset.stage = 'chat';
+  entranceHasPlayed = true; // dev/screenshot bypass — skip straight to the settled travel position, not the entrance
+  travelTarget = 1.0; travelCurrent = 1.0;
+  if (params.get('view') === 'conversation') {
+    chatLayerEl.dataset.view = 'conversation';
+    document.querySelectorAll('#chatBodyPre .msg').forEach(m => m.classList.add('visible'));
+  } else {
+    chatLayerEl.dataset.view = 'welcome';
+    if (frameEl.dataset.mode === 'barcelona') {
+      document.getElementById('greetingLineBarcelonaPre').classList.add('visible');
+      document.getElementById('barcelonaActionsPre').classList.add('visible');
+    } else {
+      document.getElementById('greetingLine1Pre').classList.add('visible');
+      document.getElementById('greetingLine2Pre').classList.add('visible');
+      document.getElementById('prebookingActionsPre').classList.add('visible');
+    }
+  }
+}
+
+// =============================================================================
+// ASK LUMI ICON — the small live render of the same presence object used in
+// the home screen's "Ask Lumi" button. Same metaball SDF + single key light
+// + Numa Pink rim glow as the main object, simplified for icon scale (no
+// ambient background pass, no energy/thinking state of its own — this icon
+// only ever idles). Its own WebGL context on its own tiny canvas, the same
+// technique the other Lumi explorations use for their header/button icons.
+// =============================================================================
+function setupAskLumiIcon(canvasEl, cssSize) {
+  const iconGl = canvasEl.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true });
+  if (!iconGl) return;
+
+  function resizeIcon() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const size = Math.round(cssSize * dpr);
+    canvasEl.width = size;
+    canvasEl.height = size;
+    iconGl.viewport(0, 0, size, size);
+  }
+  window.addEventListener('resize', resizeIcon);
+  resizeIcon();
+
+  const iconVert = `
+    attribute vec2 aPos;
+    void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+  `;
+
+  const iconFrag = `
+    precision highp float;
+    uniform float uTime;
+    uniform vec2 uIconRes;
+
+    const vec3 PINK = vec3(1.0, 0.615, 0.679); // #FF9DAD — Numa Pink (#FFC9D2), same hue/value, saturation boosted ~82% total
+    const vec3 WHITE = vec3(1.0);
+
+    // Same point-of-light language as the main presence: a small, clearly
+    // defined near-white core cooling into Numa Pink toward its edge, with
+    // a soft emitted glow beyond it — a light source, not a flat tinted
+    // disc. Idle-only here (this icon has no thinking/success state of its
+    // own), with the same tiny, slow breathing pulse as the main light.
+    void main() {
+      vec2 uv = gl_FragCoord.xy / uIconRes * 2.0 - 1.0;
+      vec2 p = uv * 0.9;
+      float t = uTime;
+
+      float pulse = sin(t * 0.6) * 0.5 + sin(t * 0.41 + 1.7) * 0.5;
+      float d = length(p);
+
+      float coreR = 0.34 + pulse * 0.04;
+      float core = 1.0 - smoothstep(coreR * 0.55, coreR, d);
+      float edge = 1.0 - smoothstep(coreR, coreR * 1.35, d);
+      float emit = exp(-d * d * 1.5) * 0.7;
+
+      vec3 hot = mix(WHITE, PINK, 0.35);
+      vec3 col = mix(vec3(0.0), PINK, emit * 0.5);
+      col = mix(col, hot, edge * 0.55);
+      col = mix(col, WHITE, core * 0.8);
+
+      float alpha = clamp(emit + core + edge, 0.0, 1.0);
+      gl_FragColor = vec4(col * alpha, alpha);
+    }
+  `;
+
+  function compileIconShader(src, type) {
+    const s = iconGl.createShader(type);
+    iconGl.shaderSource(s, src);
+    iconGl.compileShader(s);
+    if (!iconGl.getShaderParameter(s, iconGl.COMPILE_STATUS)) {
+      console.error(iconGl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  const iconProgram = iconGl.createProgram();
+  iconGl.attachShader(iconProgram, compileIconShader(iconVert, iconGl.VERTEX_SHADER));
+  iconGl.attachShader(iconProgram, compileIconShader(iconFrag, iconGl.FRAGMENT_SHADER));
+  iconGl.linkProgram(iconProgram);
+  if (!iconGl.getProgramParameter(iconProgram, iconGl.LINK_STATUS)) {
+    console.error(iconGl.getProgramInfoLog(iconProgram));
+  }
+  iconGl.useProgram(iconProgram);
+
+  const iconQuad = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+  const iconBuf = iconGl.createBuffer();
+  iconGl.bindBuffer(iconGl.ARRAY_BUFFER, iconBuf);
+  iconGl.bufferData(iconGl.ARRAY_BUFFER, iconQuad, iconGl.STATIC_DRAW);
+  const iconAPos = iconGl.getAttribLocation(iconProgram, 'aPos');
+  iconGl.enableVertexAttribArray(iconAPos);
+  iconGl.vertexAttribPointer(iconAPos, 2, iconGl.FLOAT, false, 0, 0);
+
+  const iconUTime = iconGl.getUniformLocation(iconProgram, 'uTime');
+  const iconURes = iconGl.getUniformLocation(iconProgram, 'uIconRes');
+  iconGl.enable(iconGl.BLEND);
+  iconGl.blendFunc(iconGl.SRC_ALPHA, iconGl.ONE_MINUS_SRC_ALPHA);
+
+  const iconStart = performance.now();
+  function iconFrame() {
+    const now = (performance.now() - iconStart) / 1000;
+    iconGl.useProgram(iconProgram);
+    iconGl.uniform1f(iconUTime, now);
+    iconGl.uniform2f(iconURes, canvasEl.width, canvasEl.height);
+    iconGl.drawArrays(iconGl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(iconFrame);
+  }
+  requestAnimationFrame(iconFrame);
+}
+
+setupAskLumiIcon(document.getElementById('askLumiIconPre'), 30);
+
+window.LumiPre = { goToEntry, resize };
+
+})();
+
+/* =========================================================================
+   LUMI SPOTLIGHT — BARCELONA BOOKED (independent working copy)
+   =========================================================================
+   Started as an exact duplicate of the Pre Booking IIFE above, wrapped in
+   its own separate closure and exposed as window.LumiBcn. Every id it
+   touches is one of the "Bcn"-suffixed ids in the #frameBcn markup above —
+   it never reads or writes anything with a "Pre" id, and the Pre Booking
+   IIFE above never reads or writes anything with a "Bcn" id. Change
+   anything in here freely — colors, animation, timing, layout, content,
+   interactions — none of it can reach the Pre Booking implementation
+   above.
+   ========================================================================= */
+(function() {
+
+const canvas = document.getElementById('glBcn');
+const gl = canvas.getContext('webgl', { antialias: true, alpha: false, premultipliedAlpha: false });
+
+if (!gl) {
+  document.getElementById('frameBcn').style.background = '#191919';
+  console.warn('WebGL not available.');
+}
+
+function resize() {
+  const frame = document.getElementById('frameBcn');
+  const rect = frame.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vertSrc = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const fragSrc = `
+precision highp float;
+varying vec2 vUv;
+
+uniform float uTime;
+uniform vec2 uResolution;
+uniform float uEnergy;      // 0 idle .. 1 thinking
+uniform float uSettle;      // 0..1 success settle
+uniform float uArrival;     // 0..1 one-shot "waking up" boost
+uniform vec2 uObjPos;       // anchor position (badge/header docking target) in aspect-corrected space
+uniform float uObjScale;    // overall light radius scale (1.0 = full presence, ~0.16 = header badge)
+uniform vec2 uLightOffset;  // current search offset from uObjPos, in the same space (0 at idle/settle)
+uniform float uBeam;        // 0..1 success beam amount — soft light column extending downward
+uniform vec2 uBeamTarget;   // Barcelona-only: point (in the same aspect-corrected space as
+                             // uObjPos) the beam bends toward, instead of always straight down —
+                             // defaults to directly below the light (matching the original
+                             // vertical-only beam) whenever nothing else is being pointed at.
+uniform vec3 uAccentColor;  // Barcelona-only: the light's current accent color — mixes from Numa
+                             // Pink (entering/at rest at centre) to Barcelona Violet #5E5BFF (from
+                             // partway through the centre bounce onward), driven from JS in lockstep
+                             // with the existing entrance phase — never a shader-side timer of its
+                             // own, so it can't drift from the movement it's colouring.
+
+const vec3 BG        = vec3(0.098, 0.098, 0.098); // #191919 Numa Black
+const vec3 BG_LIFT    = vec3(0.145, 0.14, 0.145);  // very slightly lifted, for the soft glow falloff
+const vec3 WHITE      = vec3(1.0, 1.0, 1.0);
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+vec3 background(vec2 p, vec2 lightPos, float energy, float arrival) {
+  vec3 col = BG;
+  float d = length(p - lightPos);
+  float ambient = exp(-d * d * 2.2);
+  float glowLevel = mix(0.6, 1.0, energy) + arrival * 0.5;
+  col = mix(col, mix(BG_LIFT, uAccentColor, 0.22), ambient * 0.6 * glowLevel);
+
+  float grain = (hash(p * uResolution.xy * 0.02 + uTime * 0.01) - 0.5) * 0.012;
+  col += grain;
+
+  return col;
+}
+
+void renderLight(vec2 p, float t, float energy, float settle, float arrival, float beam,
+                  vec2 lightPos, float scale, vec3 bgCol,
+                  out vec3 colOut, out float maskOut) {
+  vec2 lp = (p - lightPos) / max(scale, 0.001);
+  float d = length(lp);
+
+  float pulse = sin(t * 0.6) * 0.5 + sin(t * 0.41 + 1.7) * 0.5;
+  pulse = mix(pulse * 0.04, 0.0, settle);
+
+  float coreR = 0.34 + pulse;
+  float core = 1.0 - smoothstep(coreR * 0.55, coreR, d);
+
+  float edge = 1.0 - smoothstep(coreR, coreR * 1.35, d);
+
+  float emitLevel = mix(0.55, 1.0, energy) + arrival * 0.4 + beam * 0.15;
+  float emit = exp(-d * d * 1.5) * emitLevel;
+
+  vec3 hot = mix(WHITE, uAccentColor, 0.35);
+  vec3 col = mix(bgCol, uAccentColor, emit * 0.5);
+  col = mix(col, hot, edge * 0.55);
+  col = mix(col, WHITE, core * 0.8);
+
+  // The beam bends toward uBeamTarget instead of always shooting straight
+  // down: along is the same idea as the original "below" (distance
+  // travelled ALONG the beam's own direction), across is the same idea
+  // as the original toP.x (distance off the beam's centreline) — just
+  // measured against the beam's real direction instead of assuming it's
+  // always vertical. uBeamTarget defaults to a point straight below the
+  // light at the SAME fixed distance the old hardcoded beam always used
+  // (see JS), so beamWidth/beamFalloff/beamReach below are the exact same
+  // formulas, unchanged, just fed along/across instead of the old
+  // below/toP.x — this reduces to EXACTLY the original vertical-only
+  // beam whenever nothing else is being pointed at.
+  vec2 toP = p - lightPos;
+  vec2 beamDir = uBeamTarget - lightPos;
+  vec2 beamDirN = beamDir / max(length(beamDir), 0.0001);
+  float along = max(dot(toP, beamDirN), 0.0);
+  float across = length(toP - beamDirN * along);
+  float beamWidth = scale * 0.28 + along * 0.1;
+  float beamFalloff = exp(-(across * across) / max(beamWidth * beamWidth, 0.0001));
+  float beamReach = smoothstep(0.0, scale * 0.4, along) * smoothstep(0.95, 0.1, along);
+  float beamAmt = beamFalloff * beamReach * beam * 0.4;
+  col = mix(col, mix(uAccentColor, WHITE, 0.3), beamAmt);
+
+  float mask = clamp(emit + core + edge + beamAmt, 0.0, 1.0);
+  colOut = col;
+  maskOut = mask;
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+  vec2 p = (uv - 0.5) * aspect;
+
+  float t = uTime;
+  vec2 lightPos = uObjPos + uLightOffset;
+
+  vec3 bg = background(p, lightPos, uEnergy, uArrival);
+  vec3 col = bg;
+
+  vec3 lightCol; float lightMask;
+  renderLight(p, t, uEnergy, uSettle, uArrival, uBeam, lightPos, uObjScale, bg, lightCol, lightMask);
+  col = mix(col, lightCol, lightMask);
+
+  float vig = smoothstep(1.15, 0.35, length(p * vec2(0.8, 1.0)));
+  col = mix(col * 0.92, col, vig);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+function compileShader(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+  }
+  return s;
+}
+
+let program, uniforms = {};
+
+if (gl) {
+  program = gl.createProgram();
+  gl.attachShader(program, compileShader(vertSrc, gl.VERTEX_SHADER));
+  gl.attachShader(program, compileShader(fragSrc, gl.FRAGMENT_SHADER));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(program));
+  }
+  gl.useProgram(program);
+
+  const quad = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(program, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  uniforms.uTime = gl.getUniformLocation(program, 'uTime');
+  uniforms.uResolution = gl.getUniformLocation(program, 'uResolution');
+  uniforms.uEnergy = gl.getUniformLocation(program, 'uEnergy');
+  uniforms.uSettle = gl.getUniformLocation(program, 'uSettle');
+  uniforms.uArrival = gl.getUniformLocation(program, 'uArrival');
+  uniforms.uObjPos = gl.getUniformLocation(program, 'uObjPos');
+  uniforms.uObjScale = gl.getUniformLocation(program, 'uObjScale');
+  uniforms.uLightOffset = gl.getUniformLocation(program, 'uLightOffset');
+  uniforms.uBeam = gl.getUniformLocation(program, 'uBeam');
+  uniforms.uBeamTarget = gl.getUniformLocation(program, 'uBeamTarget');
+  uniforms.uAccentColor = gl.getUniformLocation(program, 'uAccentColor');
+}
+
+const params = new URLSearchParams(location.search);
+let uiState = params.get('state') || 'idle';
+
+let energyTarget = 0.0, energyCurrent = 0.0;
+let settleTarget = 0.0, settleCurrent = 0.0;
+let arrivalTarget = 1.0, arrivalCurrent = 0.0;
+let beamTarget = 0.0, beamCurrent = 0.0;
+
+function applyState(state) {
+  uiState = state;
+  if (state === 'idle') { energyTarget = 0.0; settleTarget = 0.0; beamTarget = 0.0; }
+  if (state === 'thinking') { energyTarget = 1.0; settleTarget = 0.0; beamTarget = 0.0; }
+  if (state === 'success') { energyTarget = 0.15; settleTarget = 1.0; beamTarget = 1.0; }
+}
+
+const frameEl = document.getElementById('frameBcn');
+let travelTarget = 0.0, travelCurrent = 0.0;
+
+function objPosForTravel(tr) {
+  const x = 0 + tr * -0.155;
+  const y = 0 + tr * 0.43;
+  return [x, y];
+}
+function scaleForTravel(tr) {
+  return 0.19 - tr * 0.13;
+}
+
+// ---- beam targeting (Barcelona-only): converts a DOM element's actual
+// on-screen position into the same aspect-corrected shader space
+// uObjPos/uLightOffset already live in, so the beam can bend toward a
+// real button instead of only ever shooting straight down. null means
+// "no explicit target" — frame() then points the beam directly below
+// the light, matching the original always-vertical beam exactly.
+let beamAimEl = null;
+function beamTargetPoint() {
+  if (!beamAimEl) return null;
+  const frameRect = frameEl.getBoundingClientRect();
+  const elRect = beamAimEl.getBoundingClientRect();
+  const cx = elRect.left + elRect.width / 2;
+  const cy = elRect.top + elRect.height / 2;
+  const u = (cx - frameRect.left) / frameRect.width;
+  const v = 1 - (cy - frameRect.top) / frameRect.height; // flip: DOM y grows down, shader v grows up
+  const aspect = frameRect.width / frameRect.height;
+  return [(u - 0.5) * aspect, (v - 0.5)];
+}
+
+const LEG_RISE_DUR = 1.1;
+const CENTRE_HOLD = 0.55;
+const LEG_EXIT_DUR = 1.15;
+const LEG_OFFSCREEN_DUR = 0.45;
+const LEG_ACROSS_DUR = 1.3;
+const ENTRANCE_DUR = LEG_RISE_DUR + CENTRE_HOLD + LEG_EXIT_DUR + LEG_OFFSCREEN_DUR + LEG_ACROSS_DUR;
+
+let entranceStart = null;
+let entranceHasPlayed = false;
+
+function easeInOutCubic(x) {
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+function lerp(a, b, s) { return a + (b - a) * s; }
+
+function belowFrameRest() {
+  const [centreX, centreY] = objPosForTravel(0);
+  return [centreX, centreY - 0.62, scaleForTravel(0)];
+}
+
+function entranceOffset(t) {
+  if (entranceStart === null) {
+    return entranceHasPlayed ? null : belowFrameRest();
+  }
+  const et = t - entranceStart;
+  if (et >= ENTRANCE_DUR) { entranceStart = null; entranceHasPlayed = true; return null; }
+
+  const [centreX, centreY] = objPosForTravel(0);
+  const [endX, endY] = objPosForTravel(1);
+  const startScale = scaleForTravel(0);
+  const endScale = scaleForTravel(1);
+
+  const belowY = centreY - 0.62;
+  const exitX = -0.30, exitY = centreY;
+  const aboveX = -0.30;
+  const acrossY = endY;
+
+  let cursor = LEG_RISE_DUR;
+  if (et < cursor) {
+    const s = easeInOutCubic(et / LEG_RISE_DUR);
+    return [centreX, lerp(belowY, centreY, s), startScale];
+  }
+
+  if (et < cursor + CENTRE_HOLD) {
+    const s = (et - cursor) / CENTRE_HOLD;
+    let bounce = Math.sin(s * Math.PI * 1.5) * Math.exp(-s * 2.2);
+    const closeStart = 0.7;
+    if (s > closeStart) {
+      const f = (s - closeStart) / (1 - closeStart);
+      const fade = 1 - f * f * (3 - 2 * f);
+      bounce *= fade;
+    }
+    return [centreX, centreY - bounce * 0.028, startScale * (1 - Math.abs(bounce) * 0.05)];
+  }
+  cursor += CENTRE_HOLD;
+
+  if (et < cursor + LEG_EXIT_DUR) {
+    const s = easeInOutCubic((et - cursor) / LEG_EXIT_DUR);
+    return [lerp(centreX, exitX, s), centreY, lerp(startScale, startScale * 0.8, s)];
+  }
+  cursor += LEG_EXIT_DUR;
+
+  if (et < cursor + LEG_OFFSCREEN_DUR) {
+    const s = easeInOutCubic((et - cursor) / LEG_OFFSCREEN_DUR);
+    return [exitX, lerp(exitY, acrossY, s), lerp(startScale * 0.8, endScale * 1.3, s)];
+  }
+  cursor += LEG_OFFSCREEN_DUR;
+
+  const s = easeInOutCubic((et - cursor) / LEG_ACROSS_DUR);
+  return [lerp(aboveX, endX, s), acrossY, lerp(endScale * 1.3, endScale, s)];
+}
+
+// ---- accent color phase: Numa Pink while entering from below and while
+// arriving at centre, smoothly crossfading to Barcelona Violet DURING the
+// existing centre-hold bounce, finishing by the time that bounce ends —
+// so the leftward leg, the rest of the entrance, and the settled/idle
+// state are always fully violet. Purely a read of the SAME entranceStart/
+// LEG_RISE_DUR/CENTRE_HOLD values entranceOffset() already uses — this
+// never adds its own timer and never changes any movement timing, it
+// only decides which color to hand the shader for whatever position
+// entranceOffset() (unchanged) already computed for this frame.
+const PINK_RGB = [1.0, 0.615, 0.679];   // #FF9DAD — the original Numa Pink treatment
+const VIOLET_RGB = [0.369, 0.357, 1.0]; // #5E5BFF — Barcelona Booked
+
+function accentColorForPhase(t) {
+  // No entrance currently in flight — two genuinely different cases that
+  // must NOT be treated the same:
+  //  - entranceHasPlayed is false: the entrance hasn't started yet (the
+  //    light itself is resting off-screen below, per belowFrameRest()),
+  //    but the shader's ambient background glow term still reads
+  //    uAccentColor every frame regardless of where the light currently
+  //    is — so returning violet here was leaking a faint violet tint
+  //    into the dark initial fade, before Lumi has even become visible.
+  //    Pink is correct here: nothing violet should exist on screen until
+  //    the centre-bounce crossfade actually happens.
+  //  - entranceHasPlayed is true: the entrance already finished and
+  //    settled — this IS the "final position" state, correctly violet.
+  if (entranceStart === null) return entranceHasPlayed ? VIOLET_RGB : PINK_RGB;
+
+  const et = t - entranceStart;
+  // The crossfade lives entirely inside the centre-hold window
+  // (LEG_RISE_DUR..LEG_RISE_DUR+CENTRE_HOLD): pink for the first half of
+  // the hold (so the dip itself still reads as pink arriving), then
+  // smoothstep to fully violet by the hold's own end — matching "by the
+  // time Lumi finishes the bounce ... it should be fully in the Barcelona
+  // violet." Before this window (still rising from below, or just
+  // arrived at centre): pure pink. After it (exit/offscreen/across):
+  // pure violet.
+  const fadeStart = LEG_RISE_DUR + CENTRE_HOLD * 0.5;
+  const fadeEnd = LEG_RISE_DUR + CENTRE_HOLD;
+  let f;
+  if (et <= fadeStart) f = 0;
+  else if (et >= fadeEnd) f = 1;
+  else {
+    const x = (et - fadeStart) / (fadeEnd - fadeStart);
+    f = x * x * (3 - 2 * x); // smoothstep — smooth, subtle, no snap at either end
+  }
+  return [
+    lerp(PINK_RGB[0], VIOLET_RGB[0], f),
+    lerp(PINK_RGB[1], VIOLET_RGB[1], f),
+    lerp(PINK_RGB[2], VIOLET_RGB[2], f),
+  ];
+}
+
+function searchOffset(t, energy, settle, scale) {
+  const wanderX =
+    Math.sin(t * 0.55) * 0.5 +
+    Math.sin(t * 0.23 + 1.4) * 0.3 +
+    Math.sin(t * 0.91 + 3.1) * 0.2;
+  const wanderY =
+    Math.sin(t * 0.41 + 0.6) * 0.5 +
+    Math.sin(t * 0.77 + 2.2) * 0.3 +
+    Math.sin(t * 0.19 + 4.0) * 0.2;
+  const searchRadius = scale * 0.55;
+  const idleRadius = scale * 0.05;
+  const radius = idleRadius + (searchRadius - idleRadius) * energy;
+  const settleDamp = 1.0 - settle;
+  return [wanderX * radius * settleDamp, wanderY * radius * settleDamp];
+}
+
+const start = performance.now();
+function frame() {
+  const now = (performance.now() - start) / 1000;
+
+  energyCurrent += (energyTarget - energyCurrent) * 0.03;
+  settleCurrent += (settleTarget - settleCurrent) * 0.02;
+  arrivalCurrent += (arrivalTarget - arrivalCurrent) * 0.015;
+  travelCurrent += (travelTarget - travelCurrent) * 0.055;
+  beamCurrent += (beamTarget - beamCurrent) * 0.025;
+
+  if (gl && program) {
+    // Read the accent color phase BEFORE entranceOffset() runs, against
+    // the same `now` — entranceOffset() is the one thing allowed to
+    // transition entranceStart from a live value to null (once the
+    // entrance finishes), and accentColorForPhase() needs to see
+    // whichever state was true for THIS frame's position, not a state
+    // that a call ordered afterward could have just changed.
+    const accent = accentColorForPhase(now);
+    const entrance = entranceOffset(now);
+    const [ox, oy, scale] = entrance
+      ? entrance
+      : [...objPosForTravel(travelCurrent), scaleForTravel(travelCurrent)];
+    const [lox, loy] = searchOffset(now, energyCurrent, settleCurrent, scale);
+    // Beam target: an explicit DOM element (beamAimEl) if one is set,
+    // else directly below the light's CURRENT position (ox+lox, oy+loy)
+    // — same convention as lightPos in the shader — which reproduces the
+    // original always-vertical beam exactly.
+    const explicitTarget = beamTargetPoint();
+    const beamTargetXY = explicitTarget || [ox + lox, (oy + loy) - 1.0];
+    gl.useProgram(program);
+    gl.uniform1f(uniforms.uTime, now);
+    gl.uniform2f(uniforms.uResolution, canvas.width, canvas.height);
+    gl.uniform1f(uniforms.uEnergy, energyCurrent);
+    gl.uniform1f(uniforms.uSettle, settleCurrent);
+    gl.uniform1f(uniforms.uArrival, arrivalCurrent);
+    gl.uniform2f(uniforms.uObjPos, ox, oy);
+    gl.uniform1f(uniforms.uObjScale, scale);
+    gl.uniform2f(uniforms.uLightOffset, lox, loy);
+    gl.uniform1f(uniforms.uBeam, beamCurrent);
+    gl.uniform2f(uniforms.uBeamTarget, beamTargetXY[0], beamTargetXY[1]);
+    gl.uniform3f(uniforms.uAccentColor, accent[0], accent[1], accent[2]);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const chatLayerEl = document.getElementById('chatLayerBcn');
+let welcomeTimers = [];
+
+function resetWelcomeReveal() {
+  welcomeTimers.forEach(clearTimeout);
+  welcomeTimers = [];
+  document.getElementById('greetingLine1Bcn').classList.remove('visible');
+  document.getElementById('greetingLine2Bcn').classList.remove('visible');
+  document.getElementById('greetingLineBarcelonaBcn').classList.remove('visible');
+  document.getElementById('greetingLineBarcelona2Bcn').classList.remove('visible');
+  document.getElementById('prebookingActionsBcn').classList.remove('visible');
+  document.getElementById('barcelonaActionsBcn').classList.remove('visible');
+}
+
+function playWelcomeReveal() {
+  resetWelcomeReveal();
+  if (frameEl.dataset.mode === 'barcelona') {
+    // Same two-beat greeting timing as the other branch (150ms / 750ms),
+    // then the quick actions — "Welcome to Barcelona, Sarah." arrives,
+    // then "How can I help?" shortly after, before the 2x2 grid appears.
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLineBarcelonaBcn').classList.add('visible'), 150));
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLineBarcelona2Bcn').classList.add('visible'), 750));
+    welcomeTimers.push(setTimeout(() => document.getElementById('barcelonaActionsBcn').classList.add('visible'), 1150));
+  } else {
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLine1Bcn').classList.add('visible'), 150));
+    welcomeTimers.push(setTimeout(() => document.getElementById('greetingLine2Bcn').classList.add('visible'), 750));
+    welcomeTimers.push(setTimeout(() => document.getElementById('prebookingActionsBcn').classList.add('visible'), 1150));
+  }
+}
+
+let transitionTimers = [];
+function clearTransitionTimers() { transitionTimers.forEach(clearTimeout); transitionTimers = []; }
+
+function goToChat() {
+  if (frameEl.dataset.stage === 'chat') return;
+  clearTransitionTimers();
+  travelTarget = 0.0;
+
+  frameEl.dataset.transition = 'darken';
+  transitionTimers.push(setTimeout(() => { frameEl.dataset.transition = 'blur-peak'; }, 300));
+  transitionTimers.push(setTimeout(() => {
+    frameEl.dataset.transition = 'hold';
+    frameEl.dataset.stage = 'chat';
+    chatLayerEl.dataset.view = 'welcome';
+    resetWelcomeReveal();
+  }, 800));
+  transitionTimers.push(setTimeout(() => { frameEl.dataset.transition = ''; }, 1000));
+  transitionTimers.push(setTimeout(() => {
+    delete frameEl.dataset.transition;
+    entranceStart = (performance.now() - start) / 1000;
+  }, 1400));
+  transitionTimers.push(setTimeout(() => {
+    travelCurrent = 1.0;
+    travelTarget = 1.0;
+    playWelcomeReveal();
+  }, 1400 + ENTRANCE_DUR * 1000));
+}
+
+function goToEntry() {
+  clearTransitionTimers();
+  delete frameEl.dataset.transition;
+  frameEl.dataset.stage = 'entry';
+  chatLayerEl.dataset.view = 'welcome';
+  entranceStart = null;
+  entranceHasPlayed = false;
+  travelTarget = 0.0;
+  travelCurrent = 0.0;
+  resetWelcomeReveal();
+  clearAskTimers();
+  document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+  askInput.value = '';
+  [guestMsgEl, typingEl, lumiResponseMsgEl, actionMsgEl, confirmMsgEl].forEach(el => el.classList.remove('visible'));
+  clearStayTimers();
+  resetStayChatBody();
+  clearDoorsTimers();
+  resetDoorsChatBody();
+  document.getElementById('welcomeScreenBcn').classList.remove('exiting');
+  beamAimEl = null;
+  applyState('idle');
+  setUiStateButtons('idle');
+}
+
+const askInput = document.getElementById('askAnythingInputBcn');
+const guestMsgEl = document.getElementById('guestMsgBcn');
+const typingEl = document.getElementById('typingIndicatorBcn');
+const lumiResponseMsgEl = document.getElementById('lumiResponseMsgBcn');
+const actionMsgEl = document.getElementById('actionMsgBcn');
+const confirmMsgEl = document.getElementById('confirmMsgBcn');
+const GUEST_QUESTION = "The AC in my room isn't working.";
+let askTimers = [];
+
+function clearAskTimers() { askTimers.forEach(clearTimeout); askTimers = []; }
+
+function revealMsg(el) {
+  el.classList.remove('visible');
+  void el.offsetWidth;
+  el.classList.add('visible');
+}
+
+function setUiStateButtons(state) {
+  document.querySelectorAll('#stateSwitcherBcn button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`#stateSwitcherBcn [data-state="${state}"]`).classList.add('active');
+}
+
+function setUiState(state) {
+  applyState(state);
+  setUiStateButtons(state);
+}
+
+function startSimulatedConversation() {
+  if (chatLayerEl.dataset.view === 'conversation') return;
+  clearAskTimers();
+  [guestMsgEl, typingEl, lumiResponseMsgEl, actionMsgEl, confirmMsgEl].forEach(el => el.classList.remove('visible'));
+  askInput.value = '';
+  chatLayerEl.dataset.view = 'conversation';
+  document.getElementById('askAnythingBtnBcn').classList.add('active-input');
+
+  let charIndex = 0;
+  const typeStepMs = 40;
+  askTimers.push(setTimeout(function typeNext() {
+    charIndex++;
+    askInput.value = GUEST_QUESTION.slice(0, charIndex);
+    if (charIndex < GUEST_QUESTION.length) {
+      askTimers.push(setTimeout(typeNext, typeStepMs));
+    } else {
+      askTimers.push(setTimeout(sendGuestMessage, 200));
+    }
+  }, 250));
+
+  function sendGuestMessage() {
+    document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+    askInput.value = '';
+    revealMsg(guestMsgEl);
+
+    askTimers.push(setTimeout(() => {
+      setUiState('thinking');
+      revealMsg(typingEl);
+    }, 150));
+
+    askTimers.push(setTimeout(() => {
+      typingEl.classList.remove('visible');
+      setUiState('idle');
+      revealMsg(lumiResponseMsgEl);
+    }, 3400));
+
+    askTimers.push(setTimeout(() => revealMsg(actionMsgEl), 4050));
+
+    askTimers.push(setTimeout(() => {
+      setUiState('success');
+      revealMsg(confirmMsgEl);
+    }, 4650));
+  }
+}
+
+const stayChatScrollEl = document.getElementById('stayChatScrollBcn');
+const STAY_GUEST_REPLY = "I'm thinking of going to Barcelona.";
+
+const STAY_PROPERTIES = [
+  {
+    id: 'roca', name: 'Numa Roca', hood: 'Eixample',
+    why: "Numa's first Barcelona home, right in the grid of Eixample — if you want a stay that feels more like living in the city than visiting it, this is a good fit.",
+  },
+  {
+    id: 'seda', name: 'Numa Seda', hood: 'El Born',
+    why: "Tucked into El Born's narrow lanes, with original vaulted ceilings inside — good if you want to fall asleep and wake up surrounded by the Gothic side of the city.",
+  },
+  {
+    id: 'brio', name: 'Numa Brio', hood: 'Gràcia',
+    why: 'Gràcia is the neighbourhood locals never want to leave — cafés, small squares, independent shops. Good if you want everyday Barcelona life on your doorstep.',
+  },
+  {
+    id: 'colmena', name: 'Numa Colmena', hood: 'Sarrià–Sant Gervasi',
+    why: "A quieter, leafier side of Barcelona up near the hills. Good if you'd rather come back to somewhere calm after a day in the busier parts of the city.",
+  },
+  {
+    id: 'lustre', name: 'Numa Lustre', hood: 'El Born',
+    why: 'Another option right in El Born, a short walk from Seda — good if you want to be close to the galleries, bars and energy of the area rather than just passing through it.',
+  },
+];
+
+function resetStayChatBody() {
+  if (stayScrollRaf) { cancelAnimationFrame(stayScrollRaf); stayScrollRaf = null; }
+  stayChatScrollEl.innerHTML = '<div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div>';
+}
+
+function buildStayTextMsg(kind, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${kind}`;
+  el.textContent = text;
+  return el;
+}
+
+function buildStayTypingEl() {
+  const el = document.createElement('div');
+  el.className = 'typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  return el;
+}
+
+function buildStayRecMsg(property) {
+  const shortName = property.name.replace('Numa ', '');
+  const el = document.createElement('div');
+  el.className = 'msg lumi stay-rec-msg';
+  el.dataset.property = property.id;
+  el.innerHTML = `
+    <div class="stay-rec-name">${property.name} <span class="stay-rec-hood">${property.hood}</span></div>
+    <p class="stay-rec-why">${property.why}</p>
+    <div class="stay-rec-gallery">
+      <img src="${property.id}.avif" alt="${property.name}" />
+    </div>
+    <button class="stay-rec-explore" data-property="${property.id}">Explore ${shortName}<span class="material-symbols-outlined">arrow_forward</span></button>
+  `;
+  el.querySelector('.stay-rec-explore').addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('Explore property:', property.id);
+  });
+  return el;
+}
+
+let stayScrollRaf = null;
+function animateStayScrollTo(target, duration) {
+  if (stayScrollRaf) cancelAnimationFrame(stayScrollRaf);
+  const from = stayChatScrollEl.scrollTop;
+  const delta = target - from;
+  if (Math.abs(delta) < 0.5) return;
+  const startTime = performance.now();
+  const ease = (x) => 1 - Math.pow(1 - x, 3);
+  function step(now) {
+    const s = Math.min((now - startTime) / (duration * 1000), 1);
+    stayChatScrollEl.scrollTop = from + delta * ease(s);
+    if (s < 1) {
+      stayScrollRaf = requestAnimationFrame(step);
+    } else {
+      stayScrollRaf = null;
+    }
+  }
+  stayScrollRaf = requestAnimationFrame(step);
+}
+
+function appendStayMsg(el) {
+  stayChatScrollEl.appendChild(el);
+  requestAnimationFrame(() => {
+    el.classList.add('stay-visible');
+
+    const topMargin = 14;
+    const anchorToTop = el.offsetTop - topMargin;
+    const maxScroll = stayChatScrollEl.scrollHeight - stayChatScrollEl.clientHeight;
+    const target = Math.max(0, Math.min(anchorToTop, maxScroll));
+    animateStayScrollTo(target, 0.85);
+  });
+  return el;
+}
+
+let stayTimers = [];
+function clearStayTimers() { stayTimers.forEach(clearTimeout); stayTimers = []; }
+
+function startStayScenario() {
+  goToChat();
+  clearStayTimers();
+  clearAskTimers();
+  resetStayChatBody();
+  askInput.value = '';
+  document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+
+  chatLayerEl.dataset.view = 'stay-convo';
+
+  stayTimers.push(setTimeout(() => {
+    appendStayMsg(buildStayTextMsg('lumi', 'Where are you thinking of going?'));
+  }, 200));
+
+  stayTimers.push(setTimeout(() => {
+    document.getElementById('askAnythingBtnBcn').classList.add('active-input');
+    let charIndex = 0;
+    const typeStepMs = 40;
+    stayTimers.push(setTimeout(function typeNext() {
+      charIndex++;
+      askInput.value = STAY_GUEST_REPLY.slice(0, charIndex);
+      if (charIndex < STAY_GUEST_REPLY.length) {
+        stayTimers.push(setTimeout(typeNext, typeStepMs));
+      } else {
+        stayTimers.push(setTimeout(sendStayReply, 250));
+      }
+    }, 250));
+  }, 900));
+
+  function sendStayReply() {
+    document.getElementById('askAnythingBtnBcn').classList.remove('active-input');
+    askInput.value = '';
+    appendStayMsg(buildStayTextMsg('guest', STAY_GUEST_REPLY));
+
+    let typingEl;
+    stayTimers.push(setTimeout(() => {
+      setUiState('thinking');
+      typingEl = appendStayMsg(buildStayTypingEl());
+    }, 250));
+
+    stayTimers.push(setTimeout(() => {
+      typingEl.remove();
+      setUiState('success');
+
+      stayTimers.push(setTimeout(() => {
+        appendStayMsg(buildStayTextMsg('lumi', 'Nice. Here are a few places you could stay.'));
+      }, 200));
+    }, 5000));
+
+    STAY_PROPERTIES.forEach((property, i) => {
+      stayTimers.push(setTimeout(() => {
+        appendStayMsg(buildStayRecMsg(property));
+      }, 5900 + i * 550));
+    });
+  }
+}
+
+// ---- "Doors" scripted scenario (Barcelona only) ----
+// Its own scroll container, own timers, own message-building — the only
+// thing shared with "Where should I stay?" is buildStayTextMsg (a plain,
+// container-agnostic ".msg" element factory) and the general appendMsg/
+// animateScrollTo PATTERN, each re-implemented here against doorsChatScrollEl
+// so the two flows can never interfere with each other's scroll/timer state.
+const doorsChatScrollEl = document.getElementById('doorsChatScrollBcn');
+const welcomeScreenEl = document.getElementById('welcomeScreenBcn');
+
+function resetDoorsChatBody() {
+  if (doorsScrollRaf) { cancelAnimationFrame(doorsScrollRaf); doorsScrollRaf = null; }
+  doorsChatScrollEl.innerHTML = '<div class="stay-chat-spacer"></div><div class="stay-chat-date">Today</div>';
+}
+
+let doorsScrollRaf = null;
+function animateDoorsScrollTo(target, duration) {
+  if (doorsScrollRaf) cancelAnimationFrame(doorsScrollRaf);
+  const from = doorsChatScrollEl.scrollTop;
+  const delta = target - from;
+  if (Math.abs(delta) < 0.5) return;
+  const startTime = performance.now();
+  const ease = (x) => 1 - Math.pow(1 - x, 3);
+  function step(now) {
+    const s = Math.min((now - startTime) / (duration * 1000), 1);
+    doorsChatScrollEl.scrollTop = from + delta * ease(s);
+    if (s < 1) {
+      doorsScrollRaf = requestAnimationFrame(step);
+    } else {
+      doorsScrollRaf = null;
+    }
+  }
+  doorsScrollRaf = requestAnimationFrame(step);
+}
+
+function appendDoorsMsg(el) {
+  doorsChatScrollEl.appendChild(el);
+  requestAnimationFrame(() => {
+    el.classList.add('stay-visible');
+    const topMargin = 14;
+    const anchorToTop = el.offsetTop - topMargin;
+    const maxScroll = doorsChatScrollEl.scrollHeight - doorsChatScrollEl.clientHeight;
+    const target = Math.max(0, Math.min(anchorToTop, maxScroll));
+    animateDoorsScrollTo(target, 0.85);
+  });
+  return el;
+}
+
+const DOOR_OPTIONS = [
+  { id: 'entrance', label: 'Entrance door' },
+  { id: 'corridor', label: 'Corridor door' },
+  { id: 'room502', label: 'Room 502' },
+];
+
+// Only Room 502 is wired to the full press-and-hold/charge/open sequence
+// for this step — Entrance door and Corridor door are already real
+// press-and-hold buttons (same markup/behaviour shell) but intentionally
+// inert beyond that for now, per "build the Doors interaction only [for
+// Room 502]" — pressing them does nothing yet, never an error.
+const DOOR_HOLD_MS = 1400; // full press-and-hold duration required to open
+
+function buildDoorRow() {
+  const row = document.createElement('div');
+  row.className = 'msg lumi door-row';
+  // a plain (non-bubble) row: reuses the .msg class only for the
+  // conversation's consistent spacing/entrance animation, but the row
+  // itself lays its three buttons out side by side, not as bubble text
+  row.style.background = 'none';
+  row.style.border = 'none';
+  row.style.padding = '0';
+  row.style.maxWidth = '100%';
+
+  DOOR_OPTIONS.forEach((door) => {
+    const btn = document.createElement('button');
+    btn.className = 'door-btn';
+    btn.dataset.door = door.id;
+    btn.innerHTML = `<span class="door-btn-charge"></span><span class="door-btn-label">${door.label}</span>`;
+    row.appendChild(btn);
+    wireDoorPressAndHold(btn, door.id);
+  });
+
+  return row;
+}
+
+// Press-and-hold state, isolated per button via closures — pointer
+// events (not click) so it genuinely requires a sustained hold, not a
+// tap: pointerdown starts charging, and anything short of holding for
+// the full DOOR_HOLD_MS (up) cancels and resets to idle with no effect.
+function wireDoorPressAndHold(btn, doorId) {
+  const chargeEl = btn.querySelector('.door-btn-charge');
+  let raf = null;
+  let startTime = null;
+  let active = false;
+
+  function setCharge(p) {
+    chargeEl.style.transform = `scaleY(${p})`;
+  }
+
+  function cancel() {
+    active = false;
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    btn.classList.remove('charging', 'charged');
+    setCharge(0);
+    if (doorId === 'room502' && beamAimEl === btn) {
+      beamAimEl = null;
+      setUiState('idle');
+    }
+  }
+
+  function step(now) {
+    if (!active) return;
+    const elapsed = now - startTime;
+    const p = Math.min(elapsed / DOOR_HOLD_MS, 1);
+    setCharge(p);
+    if (p >= 1) {
+      complete();
+      return;
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  function complete() {
+    active = false;
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    btn.classList.remove('charging');
+    btn.classList.add('charged');
+    if (doorId === 'room502') {
+      beamAimEl = null;
+      setUiState('idle');
+      setCharge(0);
+      btn.classList.remove('charged');
+      appendDoorsMsg(buildStayTextMsg('lumi', 'Room 502 is open.'));
+    } else {
+      // Entrance/Corridor: charge completes visually but has no further
+      // effect yet — settle back to idle so the button is reusable.
+      setTimeout(() => { btn.classList.remove('charged'); setCharge(0); }, 200);
+    }
+  }
+
+  function start(e) {
+    if (active) return;
+    e.preventDefault();
+    active = true;
+    startTime = performance.now();
+    btn.classList.add('charging');
+    if (doorId === 'room502') {
+      beamAimEl = btn;
+      setUiState('success');
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', cancel);
+  btn.addEventListener('pointerleave', cancel);
+  btn.addEventListener('pointercancel', cancel);
+}
+
+let doorsTimers = [];
+function clearDoorsTimers() { doorsTimers.forEach(clearTimeout); doorsTimers = []; }
+
+function startDoorsScenario() {
+  goToChat();
+  clearDoorsTimers();
+  clearStayTimers();
+  clearAskTimers();
+  resetDoorsChatBody();
+
+  // Fade the welcome message + quick actions upward, THEN swap views —
+  // a real transition rather than an instant display:none/flex cut.
+  welcomeScreenEl.classList.add('exiting');
+  doorsTimers.push(setTimeout(() => {
+    welcomeScreenEl.classList.remove('exiting');
+    chatLayerEl.dataset.view = 'doors-convo';
+
+    doorsTimers.push(setTimeout(() => {
+      appendDoorsMsg(buildStayTextMsg('lumi', 'Which door would you like to open?'));
+    }, 150));
+
+    doorsTimers.push(setTimeout(() => {
+      appendDoorsMsg(buildDoorRow());
+    }, 550));
+  }, 400));
+}
+
+document.getElementById('doorsBtnBcn').addEventListener('click', startDoorsScenario);
+
+document.getElementById('whereStayBtnBcn').addEventListener('click', startStayScenario);
+
+document.getElementById('askLumiBtnBcn').addEventListener('click', goToChat);
+document.getElementById('closeBtnBcn').addEventListener('click', goToEntry);
+document.getElementById('askAnythingBtnBcn').addEventListener('click', startSimulatedConversation);
+
+document.getElementById('stateSwitcherBcn').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  applyState(btn.dataset.state);
+  setUiStateButtons(btn.dataset.state);
+});
+
+setUiStateButtons(uiState);
+applyState(uiState);
+if (params.has('instant')) {
+  energyCurrent = energyTarget; settleCurrent = settleTarget; arrivalCurrent = 1.0;
+}
+if (params.get('stage') === 'chat' || params.has('state')) {
+  frameEl.dataset.stage = 'chat';
+  entranceHasPlayed = true;
+  travelTarget = 1.0; travelCurrent = 1.0;
+  if (params.get('view') === 'conversation') {
+    chatLayerEl.dataset.view = 'conversation';
+    document.querySelectorAll('#chatBodyBcn .msg').forEach(m => m.classList.add('visible'));
+  } else {
+    chatLayerEl.dataset.view = 'welcome';
+    if (frameEl.dataset.mode === 'barcelona') {
+      document.getElementById('greetingLineBarcelonaBcn').classList.add('visible');
+      document.getElementById('greetingLineBarcelona2Bcn').classList.add('visible');
+      document.getElementById('barcelonaActionsBcn').classList.add('visible');
+    } else {
+      document.getElementById('greetingLine1Bcn').classList.add('visible');
+      document.getElementById('greetingLine2Bcn').classList.add('visible');
+      document.getElementById('prebookingActionsBcn').classList.add('visible');
+    }
+  }
+}
+
+function setupAskLumiIcon(canvasEl, cssSize) {
+  const iconGl = canvasEl.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true });
+  if (!iconGl) return;
+
+  function resizeIcon() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const size = Math.round(cssSize * dpr);
+    canvasEl.width = size;
+    canvasEl.height = size;
+    iconGl.viewport(0, 0, size, size);
+  }
+  window.addEventListener('resize', resizeIcon);
+  resizeIcon();
+
+  const iconVert = `
+    attribute vec2 aPos;
+    void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+  `;
+
+  const iconFrag = `
+    precision highp float;
+    uniform float uTime;
+    uniform vec2 uIconRes;
+
+    const vec3 PINK = vec3(1.0, 0.615, 0.679); // #FF9DAD — Numa Pink: the Home screen's "Ask Lumi"
+                                                 // icon is a static, always-idle preview of Lumi, not
+                                                 // part of the entrance choreography — it must show
+                                                 // the SAME colour Lumi enters in (pink), never the
+                                                 // Barcelona violet it only reaches later, during the
+                                                 // centre-bounce transition.
+    const vec3 WHITE = vec3(1.0);
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / uIconRes * 2.0 - 1.0;
+      vec2 p = uv * 0.9;
+      float t = uTime;
+
+      float pulse = sin(t * 0.6) * 0.5 + sin(t * 0.41 + 1.7) * 0.5;
+      float d = length(p);
+
+      float coreR = 0.34 + pulse * 0.04;
+      float core = 1.0 - smoothstep(coreR * 0.55, coreR, d);
+      float edge = 1.0 - smoothstep(coreR, coreR * 1.35, d);
+      float emit = exp(-d * d * 1.5) * 0.7;
+
+      vec3 hot = mix(WHITE, PINK, 0.35);
+      vec3 col = mix(vec3(0.0), PINK, emit * 0.5);
+      col = mix(col, hot, edge * 0.55);
+      col = mix(col, WHITE, core * 0.8);
+
+      float alpha = clamp(emit + core + edge, 0.0, 1.0);
+      gl_FragColor = vec4(col * alpha, alpha);
+    }
+  `;
+
+  function compileIconShader(src, type) {
+    const s = iconGl.createShader(type);
+    iconGl.shaderSource(s, src);
+    iconGl.compileShader(s);
+    if (!iconGl.getShaderParameter(s, iconGl.COMPILE_STATUS)) {
+      console.error(iconGl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  const iconProgram = iconGl.createProgram();
+  iconGl.attachShader(iconProgram, compileIconShader(iconVert, iconGl.VERTEX_SHADER));
+  iconGl.attachShader(iconProgram, compileIconShader(iconFrag, iconGl.FRAGMENT_SHADER));
+  iconGl.linkProgram(iconProgram);
+  if (!iconGl.getProgramParameter(iconProgram, iconGl.LINK_STATUS)) {
+    console.error(iconGl.getProgramInfoLog(iconProgram));
+  }
+  iconGl.useProgram(iconProgram);
+
+  const iconQuad = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+  const iconBuf = iconGl.createBuffer();
+  iconGl.bindBuffer(iconGl.ARRAY_BUFFER, iconBuf);
+  iconGl.bufferData(iconGl.ARRAY_BUFFER, iconQuad, iconGl.STATIC_DRAW);
+  const iconAPos = iconGl.getAttribLocation(iconProgram, 'aPos');
+  iconGl.enableVertexAttribArray(iconAPos);
+  iconGl.vertexAttribPointer(iconAPos, 2, iconGl.FLOAT, false, 0, 0);
+
+  const iconUTime = iconGl.getUniformLocation(iconProgram, 'uTime');
+  const iconURes = iconGl.getUniformLocation(iconProgram, 'uIconRes');
+  iconGl.enable(iconGl.BLEND);
+  iconGl.blendFunc(iconGl.SRC_ALPHA, iconGl.ONE_MINUS_SRC_ALPHA);
+
+  const iconStart = performance.now();
+  function iconFrame() {
+    const now = (performance.now() - iconStart) / 1000;
+    iconGl.useProgram(iconProgram);
+    iconGl.uniform1f(iconUTime, now);
+    iconGl.uniform2f(iconURes, canvasEl.width, canvasEl.height);
+    iconGl.drawArrays(iconGl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(iconFrame);
+  }
+  requestAnimationFrame(iconFrame);
+}
+
+setupAskLumiIcon(document.getElementById('askLumiIconBcn'), 30);
+
+window.LumiBcn = { goToEntry, resize };
+
+})();
+</script>
+
+</body>
+</html>
